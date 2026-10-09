@@ -1,0 +1,20 @@
+{
+  "contract": "zalo-brain-extension@1",
+  "id": "bizcity-twin-crm",
+  "name": "Zalo Brain CRM",
+  "version": "1.0.0",
+  "requires": {
+    "zalo-brain": ">=1.4.0",
+    "spine": { "crm": ">=1.0.0" }
+  },
+  "features": [
+    "workspace", "pipeline", "tasks", "sla", "reports", "campaigns", "broadcast", "invoices", "b2b",
+    "submissions", "calendar", "care", "admin_ui", "staff_admin", "email_automation", "print_ads", "ai_usage", "service"
+  ],
+  "surfaces": [
+    { "surface": "crm", "pages": [ "pipeline", "tasks", "sla", "reports", "campaigns", "broadcast", "invoices", "accounts", "submissions", "staff" ] }
+  ],
+  "tables_changelog": "modules.twin-crm",
+  "mcp_tools": [ "crm_stage", "crm.task.create", "crm_calendar" ],
+  "licence": { "tier": "premium" }
+}

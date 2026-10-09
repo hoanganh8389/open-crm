@@ -1,36 +1,42 @@
-# BizCity Twin CRM (Inbox Hub)
+# Zalo Brain CRM
 
-> **R-LEAN-4 (Tối thượng):** mọi việc ≤ 4 bước (Census → Cut/Build → Prove → Record), mọi luồng UI ≤ 4 bước; plugin client chỉ được **nhẹ đi** — PHP lên server < 10 MB, bảng client sống < 30; trước khi xong chạy `node bin/lean-scoreboard.mjs --check` (CI chạy cùng lệnh). Luật: [R-LEAN-4](../../docs/rules/PHASE-0-RULE-LEAN-FOUR-STEP.md) · hàng đợi: [CORE-REDUCTION CHECKLIST §3d](../../core/knowledge/docs/CORE-REDUCTION-CHECKLIST.md). CRM giữ 11 bảng lõi; campaign/invoice/contract/SLA/reporting/print-ads/loyalty sang plugin add-on `bizcity-twin-crm-addon` (Q-W16-2, wave B-7).
+<!-- [2026-10-09 Johnny Chu - Chu Hoàng Anh] PHASE-0.96 — README của plugin riêng bizcity-twin-crm (Zalo Brain CRM). -->
 
-> **Product priority:** CRM is currently built around **Zalo Cá nhân** as the
-> primary customer-care channel. The Inbox must therefore preserve Personal
-> session truth, owner/phone scope, captions/media, contact-card rendering and
-> outbound delivery. Zalo OA and Facebook/Fanpage are the next business-owned
-> expansion channels; Zalo Bot, Telegram and TwinChat are supporting/admin
-> surfaces. This is a sequencing priority, not a second channel architecture:
-> all channels still use the canonical Channel Gateway → CRM → Brain path.
+**Zalo Brain CRM is the team arm of Zalo Brain.** It turns the conversation ledger that Zalo Brain keeps for every Zalo number into a sales and customer-care operation: pipeline, tasks and handoff, SLA, reports, campaigns and broadcast, B2B accounts, invoices, automated after-sales (Woo recap, CSAT, shipping), email automation, print-ads, service dispatch and the React inbox.
 
-Unified multi-channel customer-care inbox (Facebook, Messenger, Zalo OA, Zalo
-Personal, WebChat, Email) with a Twin Brain trace — the admin/agent UI built
-on top of the `core/channel-gateway` omni-channel foundation.
+**Author:** Biz Central Brain — Johnny Chu (Chu Hoàng Anh). Bizcity Central Brain, copyright registration certificate No. 8877/2026/QTG.
 
-- **Framework contract:** [manifest.json](manifest.json) declares this
-  plugin's capabilities. See
-  [PLUGIN-TWIN-STANDARD.md](../../docs/extending/PLUGIN-TWIN-STANDARD.md) for
-  the canonical extension shape and validation command
-  (`php bin/twin diagnostics plugin plugins/bizcity-twin-crm --json`).
-- **Architecture position:** `core/channel-gateway` normalizes every Zone 1
-  customer channel into one envelope; this plugin is the CRM/Inbox surface
-  that reads/writes that normalized data — it does not own channel adapters
-  itself. See [PHASE-0-RULE-BRAIN-UNIFICATION.md](../../docs/rules/PHASE-0-RULE-BRAIN-UNIFICATION.md)
-  Contract 13 for the omni-channel-to-brain-to-admin-UI chain.
-- **Docs:** see [docs/](docs/) for the CRM inbox operating suite, contact
-  unification, and channel adapter contract (`includes/inbox/class-channel-contract.php`).
-- **Registry status:** `bizcity.twin-crm` in
-  [PLUGIN-CONTRACT-REGISTRY-v1.json](../../docs/contracts/PLUGIN-CONTRACT-REGISTRY-v1.json)
-  is `partial` — required surfaces include `channel_normalized`,
-  `outbound_logging`, `identity_scoping`, `error_envelope`, `runtime_probe`.
+## Where it lives
 
-Do not `$wpdb->insert/update` CRM data directly from a controller/adapter —
-all writes go through the Repository + `BizCity_CRM_Event_Emitter` per
-R-UNIFY.
+| | |
+|---|---|
+| Folder | `wp-content/plugins/bizcity-twin-crm/` — a **separate plugin**, outside `bizcity-twin-ai` (PHASE-0.96, D96-1) |
+| Layout | Flat: `bizcity-twin-crm.php`, `bootstrap.php`, `zalo-brain.json`, `includes/`, `apps/`, `templates/`, `assets/dist/`, `data/`, `manifests/` |
+| Git | `github.com/hoanganh8389/zalo-brain-crm` (its own repository; only PHP + built dist are published — R-PROD-REPO) |
+| Requires | **Zalo Brain** = `bizcity-twin-ai` (`Requires Plugins`), PHP 7.4, WordPress 6.0. Activated **per site** — single-site or any subsite; never network-wide (`Network: false`) |
+| Licence | **Premium** add-on (1API master tier) |
+| Earlier home (superseded) | `bizcity-twin-ai/plugins/bizcity-twin-crm/` as "BizCity Twin CRM (Inbox Hub)" 0.32.x, a mandatory bundle — until 2026-10-09 |
+
+## How it is loaded
+
+`bizcity-twin-ai` loads the **CRM spine** (`core/crm`, contract `crm-spine@1`) on every request: contacts, inboxes, conversations, messages, attachments, labels, teams and inbox members, archive receipts, magic links, the channel ingestor and outbound dispatcher, the spine REST routes and the spine DB installer. This plugin boots on top at `plugins_loaded@6`:
+
+1. `BizCity_CRM_Spine::register_extension( zalo-brain.json )` — tells the spine which features it brings (`pipeline`, `tasks`, `sla`, `reports`, …). Core code asks `BizCity_CRM_Spine::has( 'pipeline' )` before touching anything that exists only here, and answers `crm_feature_unavailable` when this plugin is absent.
+2. `BizCity_CRM_DB_Installer_Ext` appends its CREATE statements to the spine's single `dbDelta` pass (`bizcity_crm_install_tables`) and runs its migrations on `bizcity_crm_install_migrate`. Own version option `bizcity_crm_ext_db_ver`. Nothing is ever dropped on deactivation.
+3. `BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST` registers the extension routes under the shared namespace `bizcity-crm/v1`; the spine registered its own routes at priority 9.
+
+Without Zalo Brain the plugin shows one admin notice and loads nothing. Without this plugin, Zalo Brain still receives, answers, archives and scopes every conversation — only the team features are missing.
+
+## What moved where (PHASE-0.96)
+
+| Stays in Zalo Brain (`core/crm`) | This plugin | Dropped 2026-10-09 (archived in `_archived/PHASE-0.96`, not published) |
+|---|---|---|
+| ledger tables (15), Repository, ingestor, outbound dispatcher, inbox access + staff policy, contracts (Actor/Authority), channel adapters, magic links + admin-chat grants, Guru per inbox, spine REST, spine installer | pipeline, tasks/handoff/kanban, SLA, reports + AI usage, submissions/lead capture, calendar adapter, CSKH tự động (Woo), campaigns/broadcast/QR/loyalty, B2B + invoices, email automation, print-ads, service dispatch, staff admin REST, React SPA, menu "Zalo Brain CRM", `/crm/` | PHP AI replier (the cell answers now), CRM rule engine (all automation = bizcity-automation), identity-conflict queue (identity has one source of truth: the cell) |
+
+Design and checklist: `bizcity-twin-ai/core/channel-gateway/docs/PHASE-0.96-ZALO-BRAIN-CRM-SPLIT/` (kept local, not published).
+
+## Rules that apply here
+
+- Never `require` a core file by path (D96-4). Core classes are loaded before this plugin or they are not there at all.
+- Class, table, REST and capability names are unchanged from the bundled era (`BizCity_CRM_*`, `bizcity_crm_*`, `bizcity-crm/v1`, `bizcity_crm_*` caps).
+- All writes go through the Repository + `BizCity_CRM_Event_Emitter` (R-UNIFY); every UI write is a verb button → `ActionSheet` (R-ACTION-SHEET); every flow ≤ 4 steps (R-LEAN-4).
