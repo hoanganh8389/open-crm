@@ -1,0 +1,17 @@
+# Zalo Brain CRM (bizcity-twin-crm) - PHASE-0.96
+# Quy tac chu 2026-10-09: chi dua PHP + dist (file chay that). Khong dua ma nguon, tai lieu, thu vien.
+_archived/
+_library/
+app/
+docs/
+**/node_modules/
+**/src/
+# frontend/ = ma nguon + cau hinh build; chi giu fallback/ vi PHP nap truc tiep (class-admin-menu.php)
+frontend/*
+!frontend/fallback/
+# R-DIAG-LOCAL: tests, logs, trang chan doan khong len GitHub/VPS
+tests/
+*.log
+.phpunit.result.cache
+includes/class-sprint-diagnostic.php
+includes/class-sprint-diagnostic-phase-cd.php
