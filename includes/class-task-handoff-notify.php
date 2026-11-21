@@ -97,7 +97,7 @@ final class BizCity_CRM_Task_Handoff_Notify {
 	private static function dispatch_custom_workflow( array $workflow, string $chat_id, int $assignee_id, int $count, int $actor_id, string $due_date ): void {
 		if ( ! class_exists( 'BizCity_Automation_Trigger_Matcher' ) ) { return; }
 		$leader = get_userdata( $actor_id );
-		$workspace = apply_filters( 'bizcity_crm_task_handoff_workspace_url', home_url( '/gpt/crm/' ) );
+		$workspace = apply_filters( 'bizcity_crm_task_handoff_workspace_url', function_exists( 'bizcity_twinweb_url' ) ? bizcity_twinweb_url( 'crm' ) : home_url( '/gpt/crm/' ) ); // [2026-10-12 11:47 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.102 ST102-L12 — no /gpt/ add-on ⇒ the link points at the Twin Shell CRM entry
 		$result = BizCity_Automation_Trigger_Matcher::instance()->dispatch_webhook(
 			$workflow['slug'],
 			array(
@@ -149,7 +149,7 @@ final class BizCity_CRM_Task_Handoff_Notify {
 				$text .= sprintf( ' Hạn %s/%s.', $parts[2], $parts[1] );
 			}
 		}
-		$workspace = apply_filters( 'bizcity_crm_task_handoff_workspace_url', home_url( '/gpt/crm/' ) );
+		$workspace = apply_filters( 'bizcity_crm_task_handoff_workspace_url', function_exists( 'bizcity_twinweb_url' ) ? bizcity_twinweb_url( 'crm' ) : home_url( '/gpt/crm/' ) ); // [2026-10-12 11:47 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.102 ST102-L12 — as above
 		return $text . ' Mở "Việc được giao" trong ' . esc_url_raw( (string) $workspace );
 	}
 

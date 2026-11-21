@@ -119,7 +119,7 @@ final class BizCity_CRM_Campaign_Conversion_Bridge {
 	}
 
 	private static function send_welcome_template( int $conv_id, int $macro_id, array $event_meta ): array {
-		$macro = BizCity_CRM_Repository::get_macro( $macro_id );
+		$macro = BizCity_CRM_Repository_Ext::get_macro( $macro_id );
 		if ( ! $macro ) { return array( 'ok' => false, 'detail' => 'macro_not_found' ); }
 
 		$template = (string) ( $macro['template'] ?? '' );

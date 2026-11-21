@@ -134,6 +134,8 @@ final class BizCity_CRM_Plugin {
 		}, 20, 1 );
 
 		// REST — extension routes only; the spine routes are registered by core at priority 9.
+		// [2026-11-20 08:06 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 S156-3.2 — the moved spine routes, same priority as core's (no-op on an old core that still has them).
+		add_action( 'rest_api_init', array( 'BizCity_CRM_Spine_REST_Ext', 'register_ext_routes' ), 9 );
 		add_action( 'rest_api_init', array( 'BizCity_CRM_REST_Controller', 'register_routes' ) );
 		add_action( 'rest_api_init', array( 'BizCity_CRM_Staff_REST', 'register_routes' ) );
 		add_action( 'rest_api_init', array( 'BizCity_CRM_Leader_Member_REST', 'register_routes' ) );
@@ -187,6 +189,89 @@ final class BizCity_CRM_Plugin {
 		require_once $inc . 'class-db-installer-ext.php';
 		require_once $inc . 'class-repository-ext.php';
 
+		// [2026-10-17 10:59 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.116 S116-X4 (C1, doc 97) — CRM files moved out of bizcity-twin-ai/core/crm (no core caller). Same load + registration as core did;
+		// the Channel Gateway keeps working without this plugin (doc 97 §4). Guarded: a partial deploy must not white-screen.
+		// Mixed deploy safety: an OLD core still requires its own copies — never declare a class / function twice (that is a fatal).
+		$moved_files = array(
+			'class-conversation-identity-resolver.php' => 'BizCity_CRM_Conversation_Identity_Resolver',
+			'class-contact-transfer.php'               => 'BizCity_CRM_Contact_Transfer',
+			'class-personal-quota-rest.php'            => 'BizCity_CRM_Personal_Quota_REST',
+			'bridges/class-google-tool-bridge.php'     => 'BizCity_CRM_Bridge_Google',
+			'class-inbox-to-crm-bridge.php'            => 'BizCity_CRM_Inbox_To_CRM_Bridge',
+			'class-crm-ingest-notif.php'               => 'BizCity_CRM_Ingest_Notif',
+			'class-guru-resolver.php'                  => 'BizCity_CRM_Guru_Resolver',
+			'class-guru-roles-admin.php'               => 'BizCity_CRM_Guru_Roles_Admin',
+			'class-crm-order-identity-metabox.php'     => 'BizCity_CRM_Order_Identity_Metabox',
+			// [2026-10-20 10:24 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.126 G-C — admin-chat grants moved from core/crm (class_exists guard = old-core safe).
+			'admin-chat/class-admin-chat-grants.php'   => 'BizCity_CRM_Admin_Chat_Grants',
+			'admin-chat/class-admin-chat-policy.php'   => 'BizCity_CRM_Admin_Chat_Policy',
+			'admin-chat/class-admin-chat-confirm.php'  => 'BizCity_CRM_Admin_Chat_Confirm',
+			'admin-chat/class-admin-chat-grants-rest.php' => 'BizCity_CRM_Admin_Chat_Grants_REST',
+			// [2026-10-24 Johnny Chu - Chu Hoàng Anh] PHASE-0.126 R126-C2 — moved from core/crm; an old core that still ships them wins (class_exists, false).
+			'class-email-send-log.php'                 => 'BizCity_CRM_Email_Send_Log',
+			'class-crm-lead-score.php'                 => 'BizCity_CRM_Lead_Score',
+			// [2026-11-19 10:25 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 S156-3.1 — contact signals moved from core/crm (every core reader is class_exists-guarded).
+			'class-contact-signals.php'                => 'BizCity_CRM_Contact_Signals',
+			// [2026-11-20 08:06 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 D156-5 — Team_Manager moved with its tables and REST routes; core Staff_Policy reads it behind class_exists.
+			'class-team-manager.php'                   => 'BizCity_CRM_Team_Manager',
+		);
+		if ( is_admin() ) {
+			$moved_files['admin-chat/class-admin-chat-grants-admin.php'] = 'BizCity_CRM_Admin_Chat_Grants_Admin';
+		}
+		foreach ( $moved_files as $moved => $moved_class ) {
+			if ( ! class_exists( $moved_class, false ) && is_readable( $inc . $moved ) ) {
+				require_once $inc . $moved;
+			}
+		}
+		if ( ! function_exists( 'bizcity_crm_issue_magic_link' ) && is_readable( $inc . 'admin-chat/functions.php' ) ) {
+			require_once $inc . 'admin-chat/functions.php';
+		}
+		// [2026-11-19 10:25 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 S156-3.1 — the CRM admin surface descriptors moved from core/crm (only this plugin reads them; an old core that still ships them wins).
+		if ( ! function_exists( 'bizcity_crm_surface_descriptors' ) && is_readable( $inc . 'contracts/crm-surfaces.php' ) ) {
+			require_once $inc . 'contracts/crm-surfaces.php';
+		}
+		unset( $moved_files, $moved, $moved_class );
+		// [2026-11-21 12:43 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 W5 (B) — Mabel Wheel lead intake moved from core (adapter from core/crm, listener from core/channel-gateway).
+		// The adapter extends core's BizCity_CRM_Adapter_Base, so it loads only when the spine is there; an old core that still ships both wins (class_exists, false).
+		if ( class_exists( 'BizCity_CRM_Adapter_Base' ) && ! class_exists( 'BizCity_CRM_Adapter_Mabel_Wheel', false ) && is_readable( $inc . 'inbox/channels/class-adapter-mabel-wheel.php' ) ) {
+			require_once $inc . 'inbox/channels/class-adapter-mabel-wheel.php';
+		}
+		if ( class_exists( 'BizCity_CRM_Adapter_Mabel_Wheel', false ) ) {
+			add_filter( 'bizcity_crm_register_adapters', static function ( $adapters ) {
+				if ( is_array( $adapters ) && ! isset( $adapters['mabel_wheel'] ) ) {
+					$adapters['mabel_wheel'] = new BizCity_CRM_Adapter_Mabel_Wheel();
+				}
+				return $adapters;
+			}, 10 );
+		}
+		if ( ! class_exists( 'BizCity_Mabel_Wheel_Channel_Listener', false ) && is_readable( $inc . 'inbox/channels/class-mabel-wheel-channel-listener.php' ) ) {
+			require_once $inc . 'inbox/channels/class-mabel-wheel-channel-listener.php';
+			BizCity_Mabel_Wheel_Channel_Listener::init(); // an old core that still ships the listener already ran init()
+		}
+		if ( class_exists( 'BizCity_CRM_Inbox_To_CRM_Bridge' ) ) {
+			BizCity_CRM_Inbox_To_CRM_Bridge::register();
+		}
+		if ( class_exists( 'BizCity_CRM_Personal_Quota_REST' ) ) {
+			add_action( 'rest_api_init', array( 'BizCity_CRM_Personal_Quota_REST', 'register_routes' ) );
+		}
+		if ( class_exists( 'BizCity_CRM_Guru_Roles_Admin' ) && method_exists( 'BizCity_CRM_Guru_Roles_Admin', 'register' ) ) {
+			BizCity_CRM_Guru_Roles_Admin::register();
+		}
+		if ( class_exists( 'BizCity_CRM_Admin_Chat_Grants' ) ) {
+			BizCity_CRM_Admin_Chat_Grants::register();
+		}
+		if ( class_exists( 'BizCity_CRM_Admin_Chat_Grants_REST' ) ) {
+			BizCity_CRM_Admin_Chat_Grants_REST::register();
+		}
+		if ( is_admin() && class_exists( 'BizCity_CRM_Admin_Chat_Grants_Admin' ) ) {
+			BizCity_CRM_Admin_Chat_Grants_Admin::register();
+		}
+
+		// [2026-10-20 09:50 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.126 G-C — CF7 lead capture + ZNS automation moved here from the Channel Gateway (self-guarded for a mixed deploy).
+		if ( is_readable( $inc . 'marketing/bootstrap.php' ) ) {
+			require_once $inc . 'marketing/bootstrap.php';
+		}
+
 		// [2026-09-21 PHASE-0.63A S-4] The pipeline platform has exactly one entry point. Lanes add files
 		// under includes/pipeline/ or includes/context/ and they load themselves — this line never changes again.
 		require_once $inc . 'pipeline/bootstrap-pipeline.php';
@@ -239,6 +324,8 @@ final class BizCity_CRM_Plugin {
 		require_once $inc . 'audit/class-admin-chat-audit.php';
 
 		// [2026-10-01 Claude Opus 5.5] PHASE-0.87 CL-2 / CL-12 — sales/orders/stock (Woo) + customers (CRM) projection packs.
+		// [2026-10-09 10:49 PM Johnny Chu - Chu Hoàng Anh] CORE-REDUCTION WP-20 W20-L4 — the kinds are registered by core now
+		// (core/mcp/verticals/woo + core/crm customers pack); this class only decorates customers rows with the pipeline stage.
 		if ( class_exists( 'BizCity_Safe_Loader' ) ) {
 			BizCity_Safe_Loader::require_file( $inc . 'woo/class-business-pack-exporter.php', 'crm.business_pack_exporter' );
 		}
@@ -262,6 +349,9 @@ final class BizCity_CRM_Plugin {
 		unset( $_crm_pipeline_doc_link_file );
 
 		// REST (extension routes; the controller extends the spine REST class loaded by core).
+		// [2026-11-20 08:06 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 S156-3.2 — the 29 spine routes only this plugin's screens call now live in
+		// rest/class-crm-spine-rest-ext.php (BizCity_CRM_Spine_REST_Ext extends the core class; the controller extends it). Loaded first.
+		require_once $inc . 'rest/class-crm-spine-rest-ext.php';
 		require_once $inc . 'class-rest-controller.php';
 		require_once $inc . 'class-staff-rest.php';
 		require_once $inc . 'class-task-handoff.php';
@@ -363,6 +453,23 @@ final class BizCity_CRM_Plugin {
 		require_once $inc . 'campaigns/class-campaign-scenario-dispatcher.php';
 		require_once $inc . 'campaigns/class-broadcast-dispatcher.php';
 		BizCity_CRM_Broadcast_Dispatcher::init();
+		// [2026-10-11 10:19 AM Johnny Chu - Chu Hoàng Anh] CORE-REDUCTION WP-20 Z-7d — the ZNS/email mass-send engine (formerly core/channel-gateway/includes/broadcast/) lives here now
+		// (D-W20-1, Q-W16-4). Same classes, REST bizcity-channel/v1/broadcasts*, cron bizcity_cg_broadcast_tick, tables
+		// bizcity_cg_broadcasts + _recipients (DDL through BizCity_CRM_DB_Installer_Ext). CRM Broadcast proxies to it.
+		require_once $inc . 'broadcast/class-broadcast-installer.php';
+		require_once $inc . 'broadcast/class-broadcast-manager.php';
+		require_once $inc . 'broadcast/class-broadcast-dispatcher.php';
+		require_once $inc . 'broadcast/class-broadcast-rest.php';
+		add_action( 'admin_init', array( 'BizCity_Broadcast_Installer', 'maybe_upgrade' ), 3 );
+		BizCity_Broadcast_Dispatcher::init_cron();
+		BizCity_Broadcast_REST::init();
+		// [2026-10-28 07:12 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L3/L4/L6 — "Lịch thông báo": Inbox selection ⇒ one row per Zalo number,
+		// the cell keeps the clock and runs the sends (doc 21). REST bizcity-crm/v1/announce/*, push retry cron bizcity_crm_announce_push_retry.
+		require_once $inc . 'announce/class-announce-store.php';
+		require_once $inc . 'announce/class-announce-cell.php';
+		require_once $inc . 'announce/class-announce-rest.php';
+		BizCity_CRM_Announce_Cell::init();
+		add_action( 'rest_api_init', array( 'BizCity_CRM_Announce_REST', 'register_routes' ) );
 
 		// Print-ads template library.
 		require_once $inc . 'print-ads/class-print-templates-installer.php';

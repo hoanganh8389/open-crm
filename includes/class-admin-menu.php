@@ -186,6 +186,8 @@ class BizCity_CRM_Admin_Menu {
 			// [2026-06-14 Johnny Chu] PHASE-0.41 CRM-PATH-3 — expose automation engine base for care recipe calls
 			'automationRestUrl' => esc_url_raw( rest_url( 'bizcity-automation/v1/' ) ),
 			'bzdocRestUrl'     => esc_url_raw( rest_url( 'bzdoc/v1/' ) ),
+			// [2026-10-17 10:10 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.121 B4-1 — "Sổ tài liệu" reads the journal (core/kg-hub REST).
+			'knowledgeRestUrl' => esc_url_raw( rest_url( 'bizcity-knowledge/v2/' ) ),
 			'twinUrl'          => esc_url_raw( home_url( '/twin/' ) ),
 			'restNonce'        => wp_create_nonce( 'wp_rest' ),
 			'pollMs'           => 3000,
@@ -229,6 +231,8 @@ class BizCity_CRM_Admin_Menu {
 			// capability name; REST still re-checks `BizCity_CRM_Authority::can()` on every
 			// write regardless of this hint (R-ERROR-UX server-decides / UI-reflects).
 			'permissions'      => $crm_boot_permissions,
+			// [2026-10-28 07:12 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L3 (D146-17) — the 📣 button + "Lịch thông báo" tab; REST re-checks every call.
+			'canAnnounce'      => class_exists( 'BizCity_CRM_Announce_Store' ) && BizCity_CRM_Announce_Store::can_announce( get_current_user_id() ),
 			'i18n'             => array(
 				'title'           => __( 'BizCity CRM Inbox', 'bizcity-twin-crm' ),
 				'noChannels'      => __( 'Chưa có inbox nào — hãy kết nối Facebook Page hoặc Zalo OA.', 'bizcity-twin-crm' ),

@@ -113,14 +113,14 @@ class BizCity_CRM_Working_Hours {
 	/** @return array<int,array> Map dow=>row (with defaults filled in for missing days). */
 	private static function load_grid( int $inbox_id ): array {
 		if ( isset( self::$grid_cache[ $inbox_id ] ) ) { return self::$grid_cache[ $inbox_id ]; }
-		$rows   = BizCity_CRM_Repository::list_working_hours( $inbox_id );
+		$rows   = BizCity_CRM_Repository_Ext::list_working_hours( $inbox_id );
 		$by_dow = array();
 		foreach ( $rows as $r ) {
 			$by_dow[ (int) $r['day_of_week'] ] = $r;
 		}
 		// Fill missing days from defaults so DST-anniversary or partial-edits don't blank a slot.
 		if ( count( $by_dow ) < 7 ) {
-			foreach ( BizCity_CRM_Repository::default_working_hours_grid() as $d ) {
+			foreach ( BizCity_CRM_Repository_Ext::default_working_hours_grid() as $d ) {
 				$dow = (int) $d['day_of_week'];
 				if ( ! isset( $by_dow[ $dow ] ) ) { $by_dow[ $dow ] = $d; }
 			}

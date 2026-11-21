@@ -29,6 +29,10 @@
  * helper `link_web_cookie_to_contact()` so the web widget JS can map the
  * cookie → contact when an authenticated user later opens chat.
  *
+ * [2026-10-25 Johnny Chu - Chu Hoàng Anh] PHASE-0.126 R126-RTR — the web-widget channel is retired (adapter archived, no
+ * /webhooks/web-widget route), so compose_client_id() no longer maps `web_widget`; link_web_cookie_to_contact() stays for
+ * the web/pixel visit rows.
+ *
  * @package BizCity_Twin_CRM
  * @since   PHASE 0.35 (M6.W4)
  */
@@ -235,8 +239,7 @@ final class BizCity_CRM_Campaign_Conversion_Linker {
 				return $ref !== '' && $source_id !== '' ? 'wa_' . $ref . '_' . $source_id : '';
 			case 'telegram':
 				return $ref !== '' && $source_id !== '' ? 'tg_' . $ref . '_' . $source_id : '';
-			case 'web_widget':
-				return $source_id !== '' ? 'web_widget_' . $source_id : '';
+			// [2026-10-25 Johnny Chu - Chu Hoàng Anh] PHASE-0.126 R126-RTR — case 'web_widget' removed (channel retired; no new inbound to link).
 			default:
 				return '';
 		}

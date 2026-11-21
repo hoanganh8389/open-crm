@@ -124,7 +124,7 @@ final class BizCity_CRM_Task_Overdue_Notify {
 		if ( '' === $chat_id ) {
 			return; // R-LM-8: not linked -> no send, no fallback.
 		}
-		$workspace = apply_filters( 'bizcity_crm_task_handoff_workspace_url', home_url( '/gpt/mytasks/' ) );
+		$workspace = apply_filters( 'bizcity_crm_task_handoff_workspace_url', function_exists( 'bizcity_twinweb_url' ) ? bizcity_twinweb_url( 'mytasks' ) : home_url( '/gpt/mytasks/' ) ); // [2026-10-12 11:47 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.102 ST102-L12 — no /gpt/ add-on ⇒ the link points at the Twin Shell CRM entry
 		$workflow = self::custom_workflow();
 		if ( $workflow ) {
 			self::dispatch_custom_workflow( $workflow, $chat_id, $assignee_id, $kind, (string) $workspace );

@@ -4,7 +4,7 @@
  *
  * Listens for every event_key registered in BizCity_CRM_Email_Event_Registry
  * and fires matching rules. Send path:
- *   - If rule has account_id → use BizCity_CRM_Gmail_SMTP_Repo::send_via().
+ *   - [2026-10-20 10:37 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.126 G-C: the per-rule Gmail account is retired — always wp_mail() through the site SMTP.
  *   - Else → use plain wp_mail() (relies on global SMTP bridge if configured).
  *
  * @package BizCity_Twin_CRM
@@ -165,109 +165,15 @@ class BizCity_CRM_Email_Dispatcher {
 			}
 		}
 
-		$account_id = isset( $rule['account_id'] ) ? (int) $rule['account_id'] : 0;
 		$is_html    = (bool) preg_match( '/<[a-z][^>]*>/i', $body );
 
-		if ( $account_id > 0 ) {
-			// File-log attempt BEFORE send
-			if ( class_exists( 'BizCity_Channel_File_Logger' ) ) {
-				BizCity_Channel_File_Logger::write( BizCity_Channel_File_Logger::CH_EMAIL, BizCity_Channel_File_Logger::LEVEL_INFO, 'send_attempt',
-					'Sending via account #' . $account_id,
-					array( 'rule_id' => (int) $rule['id'], 'rule_name' => (string) ( $rule['name'] ?? '' ), 'to' => implode( ', ', $to_list ), 'subject' => $subject, 'has_attachment' => ! empty( $attachment_paths ) )
-				);
-			}
-			$res = BizCity_CRM_Gmail_SMTP_Repo::send_via( $account_id, array(
-				'to' => $to_list, 'cc' => $cc_list, 'bcc' => $bcc_list,
-				'subject' => $subject, 'body' => $body, 'is_html' => $is_html,
-				'attachments' => $attachment_paths,
-			) );
-			self::cleanup_tmp( $tmp_files );
-			$send_ok = ! empty( $res['ok'] );
-			$err_msg = (string) ( $res['error'] ?? '' );
-			// File-log result
-			if ( class_exists( 'BizCity_Channel_File_Logger' ) ) {
-				BizCity_Channel_File_Logger::write( BizCity_Channel_File_Logger::CH_EMAIL,
-					$send_ok ? BizCity_Channel_File_Logger::LEVEL_INFO : BizCity_Channel_File_Logger::LEVEL_ERROR,
-					$send_ok ? 'send_ok' : 'send_failed',
-					$send_ok ? 'Sent OK via crm_gmail account #' . $account_id : 'Send FAILED: ' . $err_msg,
-					array( 'rule_id' => (int) $rule['id'], 'to' => implode( ', ', $to_list ), 'subject' => $subject, 'smtp_source' => 'crm_gmail', 'error' => $err_msg )
-				);
-			}
-			BizCity_CRM_Email_Rules_Repo::record_fire( (int) $rule['id'], $send_ok, $err_msg );
-			// [2026-06-19 Johnny Chu] PHASE-CG-CF7-LOG
-			BizCity_CRM_Email_Send_Log::write( array(
-				'rule_id'         => (int) $rule['id'],
-				'rule_name'       => (string) ( $rule['name'] ?? '' ),
-				'event_key'       => (string) ( $rule['event_key'] ?? '' ),
-				'recipient_email' => implode( ', ', $to_list ),
-				'subject'         => $subject,
-				'status'          => $send_ok ? 'sent' : 'failed',
-				'error_message'   => $send_ok ? null : $err_msg,
-				'smtp_source'     => 'crm_gmail',
-				'has_attachment'  => empty( $attachment_paths ) ? 0 : 1,
-			) );
-			return;
-		}
-
-		// Fallback: plain wp_mail (uses global SMTP bridge).
-		// [2026-06-19 Johnny Chu] PHASE-CG-CF7-SMTP-FIX — rule has no explicit account_id.
-		// Auto-detect the site's default active CRM Gmail account so the mu-plugin
-		// phpmailer_init hook (priority 999) does NOT override From/credentials.
-		// Only fall back to wp_mail() if truly no CRM account is configured.
-		$fallback_account_id = self::resolve_default_account();
-
-		if ( class_exists( 'BizCity_Channel_File_Logger' ) ) {
-			BizCity_Channel_File_Logger::write( BizCity_Channel_File_Logger::CH_EMAIL, BizCity_Channel_File_Logger::LEVEL_DEBUG, 'account_resolve',
-				'No explicit account_id. Resolved fallback=' . $fallback_account_id,
-				array( 'rule_id' => (int) $rule['id'], 'fallback_account_id' => $fallback_account_id )
-			);
-		}
-
-		if ( $fallback_account_id > 0 ) {
-			if ( class_exists( 'BizCity_Channel_File_Logger' ) ) {
-				BizCity_Channel_File_Logger::write( BizCity_Channel_File_Logger::CH_EMAIL, BizCity_Channel_File_Logger::LEVEL_INFO, 'send_attempt',
-					'Sending via auto-resolved account #' . $fallback_account_id,
-					array( 'rule_id' => (int) $rule['id'], 'rule_name' => (string) ( $rule['name'] ?? '' ), 'to' => implode( ', ', $to_list ), 'subject' => $subject, 'smtp_source' => 'crm_gmail_auto' )
-				);
-			}
-			$res = BizCity_CRM_Gmail_SMTP_Repo::send_via( $fallback_account_id, array(
-				'to' => $to_list, 'cc' => $cc_list, 'bcc' => $bcc_list,
-				'subject' => $subject, 'body' => $body, 'is_html' => $is_html,
-				'attachments' => $attachment_paths,
-			) );
-			self::cleanup_tmp( $tmp_files );
-			$send_ok   = ! empty( $res['ok'] );
-			$err_msg   = (string) ( $res['error'] ?? '' );
-			if ( class_exists( 'BizCity_Channel_File_Logger' ) ) {
-				BizCity_Channel_File_Logger::write( BizCity_Channel_File_Logger::CH_EMAIL,
-					$send_ok ? BizCity_Channel_File_Logger::LEVEL_INFO : BizCity_Channel_File_Logger::LEVEL_ERROR,
-					$send_ok ? 'send_ok' : 'send_failed',
-					$send_ok ? 'Sent OK via crm_gmail_auto #' . $fallback_account_id : 'Send FAILED: ' . $err_msg,
-					array( 'rule_id' => (int) $rule['id'], 'to' => implode( ', ', $to_list ), 'subject' => $subject, 'smtp_source' => 'crm_gmail_auto', 'error' => $err_msg )
-				);
-			}
-			BizCity_CRM_Email_Rules_Repo::record_fire( (int) $rule['id'], $send_ok, $err_msg );
-			BizCity_CRM_Email_Send_Log::write( array(
-				'rule_id'         => (int) $rule['id'],
-				'rule_name'       => (string) ( $rule['name'] ?? '' ),
-				'event_key'       => (string) ( $rule['event_key'] ?? '' ),
-				'recipient_email' => implode( ', ', $to_list ),
-				'subject'         => $subject,
-				'status'          => $send_ok ? 'sent' : 'failed',
-				'error_message'   => $send_ok ? null : $err_msg,
-				'smtp_source'     => 'crm_gmail_auto',
-				'has_attachment'  => empty( $attachment_paths ) ? 0 : 1,
-			) );
-			return;
-		}
-
-		// True last-resort: no CRM account configured at all → wp_mail() with site SMTP.
+		// [2026-10-20 10:37 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.126 G-C — the per-rule Gmail account (crm_gmail_smtp_accounts) is retired: every rule sends through wp_mail() and the site SMTP (BizCity_SMTP).
 		$headers = array( 'Content-Type: ' . ( $is_html ? 'text/html' : 'text/plain' ) . '; charset=UTF-8' );
 		foreach ( $cc_list as $addr )  { $headers[] = 'Cc: '  . $addr; }
 		foreach ( $bcc_list as $addr ) { $headers[] = 'Bcc: ' . $addr; }
 		if ( class_exists( 'BizCity_Channel_File_Logger' ) ) {
 			BizCity_Channel_File_Logger::write( BizCity_Channel_File_Logger::CH_EMAIL, BizCity_Channel_File_Logger::LEVEL_WARN, 'send_attempt',
-				'No CRM account found. Falling back to wp_mail (mu-plugin may override From)',
+				'Sending through wp_mail (site SMTP)',
 				array( 'rule_id' => (int) $rule['id'], 'to' => implode( ', ', $to_list ), 'subject' => $subject )
 			);
 		}
@@ -294,40 +200,6 @@ class BizCity_CRM_Email_Dispatcher {
 			'smtp_source'     => 'wp_mail',
 			'has_attachment'  => empty( $attachment_paths ) ? 0 : 1,
 		) );
-	}
-
-	/**
-	 * Resolve the best CRM account to use when a rule has no explicit account_id.
-	 * Prefers is_default=1 + is_active=1, then any is_active=1.
-	 * Returns 0 if no CRM account exists.
-	 *
-	 * [2026-06-19 Johnny Chu] PHASE-CG-CF7-SMTP-FIX
-	 */
-	private static function resolve_default_account(): int {
-		global $wpdb;
-		$tbl = BizCity_CRM_DB_Installer_V2::tbl_gmail_smtp_accounts();
-		// [2026-06-24 Johnny Chu] R-SHOW-TABLES — use information_schema + dual cache
-		static $s = array();
-		if ( isset( $s[ $tbl ] ) ) {
-			$tbl_exists = $s[ $tbl ];
-		} else {
-			$ck         = 'bz_tbl_' . (int) get_current_blog_id() . '_' . crc32( $tbl );
-			$tbl_exists = wp_cache_get( $ck, 'bizcity_tbl' );
-			if ( false === $tbl_exists ) {
-				$tbl_exists = (int) (bool) $wpdb->get_var( $wpdb->prepare(
-					'SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s LIMIT 1',
-					$tbl
-				) );
-				wp_cache_set( $ck, $tbl_exists, 'bizcity_tbl', HOUR_IN_SECONDS );
-			}
-			$s[ $tbl ] = $tbl_exists;
-		}
-		if ( ! $tbl_exists ) {
-			return 0;
-		}
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-		$id = $wpdb->get_var( "SELECT id FROM `{$tbl}` WHERE is_active=1 AND deleted_at IS NULL ORDER BY is_default DESC, id ASC LIMIT 1" );
-		return (int) $id;
 	}
 
 	/**

@@ -109,7 +109,7 @@ class BizCity_CRM_Custom_Attribute_Validator {
 	 * @return array{ok:bool, errors:array<string,string>, coerced:array}
 	 */
 	public static function validate_bag( array $attrs, string $target = 'contact' ): array {
-		$defs   = BizCity_CRM_Repository::list_custom_attribute_defs( array( 'target' => $target ) );
+		$defs   = BizCity_CRM_Repository_Ext::list_custom_attribute_defs( array( 'target' => $target ) );
 		$by_key = array();
 		foreach ( $defs as $d ) { $by_key[ (string) $d['attribute_key'] ] = $d; }
 

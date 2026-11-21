@@ -112,7 +112,7 @@ final class BizCity_CRM_Campaign_Scenario_Dispatcher {
 		// Fast-path — option remembers the seeded rule id.
 		$cached_id = (int) get_option( self::DEFAULT_RULE_OPTION, 0 );
 		if ( $cached_id > 0 ) {
-			$row = BizCity_CRM_Repository::get_automation_rule( $cached_id );
+			$row = BizCity_CRM_Repository_Ext::get_automation_rule( $cached_id );
 			if ( $row && (string) ( $row['name'] ?? '' ) === self::DEFAULT_RULE_NAME ) {
 				return $cached_id;
 			}
@@ -121,7 +121,7 @@ final class BizCity_CRM_Campaign_Scenario_Dispatcher {
 		}
 
 		// Slow-path — search by name in case the option was lost but rule exists.
-		$existing = BizCity_CRM_Repository::list_automation_rules( array(
+		$existing = BizCity_CRM_Repository_Ext::list_automation_rules( array(
 			'event_name' => 'crm_campaign_visit_recorded',
 			'limit'      => 50,
 		) );
@@ -135,7 +135,7 @@ final class BizCity_CRM_Campaign_Scenario_Dispatcher {
 
 		// Insert. Empty conditions → matches every visit. Action delegates to
 		// this dispatcher's registered Action_Registry handler.
-		$new_id = BizCity_CRM_Repository::upsert_automation_rule( array(
+		$new_id = BizCity_CRM_Repository_Ext::upsert_automation_rule( array(
 			'name'        => self::DEFAULT_RULE_NAME,
 			'description' => 'Auto-seeded by M6.W13.5 — fires dispatch_campaign_scenario on every campaign visit. Safe to disable; the visit-time hook in this class still works without it.',
 			'event_name'  => 'crm_campaign_visit_recorded',

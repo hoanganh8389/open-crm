@@ -15,6 +15,7 @@
     { "surface": "crm", "pages": [ "pipeline", "tasks", "sla", "reports", "campaigns", "broadcast", "invoices", "accounts", "submissions", "staff" ] }
   ],
   "tables_changelog": "modules.twin-crm",
-  "mcp_tools": [ "crm_stage", "crm.task.create", "crm_calendar" ],
+  "mcp_tools": [],
+  "_mcp_note": "[2026-10-11 Johnny Chu - Chu Hoàng Anh] PHASE-0.101 S101-L3/L5 (doc 30 lệch 4) — the three ghost names (crm_stage, crm.task.create, crm_calendar) never existed. The CRM tools live in the one MCP door of bizcity-twin-ai: crm.task.create / crm.followup.list / crm.staff.metrics in core/mcp (gated on this plugin's classes), crm.pipeline.stage through the adapter manifest core/mcp/adapters/bizcity-twin-crm.json (BizCity_MCP_Plugin_Adapter, D101-8). When this plugin registers tools itself, list them here and ship mcp/tools.json (zalo-brain-extension@1.1).",
   "licence": { "tier": "premium" }
 }

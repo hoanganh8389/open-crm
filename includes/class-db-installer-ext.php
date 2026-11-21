@@ -27,7 +27,15 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 	public static function register(): void {
 		add_filter( 'bizcity_crm_install_tables', array( __CLASS__, 'append_tables' ), 10, 2 );
 		add_action( 'bizcity_crm_install_migrate', array( __CLASS__, 'migrate' ) );
+		// [2026-10-20 09:38 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.126 G-A (ZBC-12) — this add-on declares ITS tables in its own schema/changelog/ (R-DCL), not in the Zalo Brain core folder.
+		// The loader class is autoloaded only where schema work happens (admin / WP-CLI), so the front end is unchanged.
+		if ( class_exists( 'BizCity_Diagnostics_Changelog_Loader' ) && method_exists( 'BizCity_Diagnostics_Changelog_Loader', 'add_dir' ) ) {
+			BizCity_Diagnostics_Changelog_Loader::add_dir( dirname( __DIR__ ) . '/schema/changelog' );
+		}
 	}
+
+	/* [2026-10-20 10:24 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.126 G-C — admin-chat grants table moved here from the core CRM installer. */
+	public static function tbl_admin_chat_grants(): string { global $wpdb; return $wpdb->prefix . 'bizcity_crm_admin_chat_grants'; }
 
 	/** Extension tables (name => table) — used by self-heal and diagnostics. */
 	public static function ext_tables(): array {
@@ -70,6 +78,13 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 			'crm_assignment_policies'      => self::tbl_assignment_policies(),
 			'crm_inbox_assignment_policies'=> self::tbl_inbox_assignment_policies(),
 			'crm_pipeline_deadlines'       => self::tbl_pipeline_deadlines(),
+			'admin_chat_grants'            => self::tbl_admin_chat_grants(),
+			// [2026-11-20 08:06 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 D156-5 — created by this plugin now (core stopped).
+			'crm_teams'                    => self::tbl_teams(),
+			'crm_team_members'             => self::tbl_team_members(),
+			// [2026-10-11 10:19 AM Johnny Chu - Chu Hoàng Anh] CORE-REDUCTION WP-20 Z-7d — the broadcast engine's own tables (moved from core/channel-gateway).
+			'cg_broadcasts'                => $GLOBALS['wpdb']->prefix . 'bizcity_cg_broadcasts',
+			'cg_broadcast_recipients'      => $GLOBALS['wpdb']->prefix . 'bizcity_cg_broadcast_recipients',
 		);
 	}
 
@@ -85,13 +100,34 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 	}
 
 	/** admin_init / rest_api_init: run the shared install() when this extension's stamp or tables are behind. */
+	/** One install attempt per request, and one per cool-down window across requests (see maybe_upgrade_ext). */
+	private static $upgrade_attempted = false;
+	const UPGRADE_LOCK_TRANSIENT = 'bizcity_crm_ext_upgrade_lock';
+	const UPGRADE_LOCK_TTL       = 900; // 15 minutes
+
 	public static function maybe_upgrade_ext(): void {
+		if ( self::$upgrade_attempted ) {
+			return; // admin_init AND rest_api_init can both fire in one page load
+		}
 		if ( get_option( self::EXT_DB_VERSION_OPTION ) === BIZCITY_CRM_EXT_DB_VERSION && empty( self::missing_ext_tables() ) ) {
 			return;
 		}
+		// [2026-10-14 03:45 AM Johnny Chu - Chu Hoàng Anh] PERF — install() is a full dbDelta pass (≈ 480 DESCRIBE / SHOW INDEX / ALTER ... CHANGE COLUMN
+		// queries per blog). It ran on EVERY admin + REST request whenever its stamp could not be written or one table stayed "missing" after the
+		// pass (Query Monitor 2026-10-14: 960 duplicate queries, 4.5 s). Attempt it once per request and once per 15 minutes per site; a table that
+		// still does not exist afterwards is logged ONCE per window instead of being re-created by hammering dbDelta.
+		self::$upgrade_attempted = true;
+		if ( get_transient( self::UPGRADE_LOCK_TRANSIENT ) ) {
+			return;
+		}
+		set_transient( self::UPGRADE_LOCK_TRANSIENT, time(), self::UPGRADE_LOCK_TTL ); // per blog: each blog has its own prefix + tables
 		self::register();
 		parent::install();
 		update_option( self::EXT_DB_VERSION_OPTION, BIZCITY_CRM_EXT_DB_VERSION );
+		$still = self::missing_ext_tables();
+		if ( ! empty( $still ) ) {
+			error_log( '[bizcity-twin-crm] extension tables still missing after install(): ' . implode( ',', array_keys( $still ) ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		}
 	}
 
 	/** Activation: same path. */
@@ -104,6 +140,7 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 	/** Filter callback: append this plugin's CREATE TABLE statements to the spine pass. */
 	public static function append_tables( array $sql, string $charset ): array {
 		$cad = self::tbl_custom_attribute_definitions();
+		$admin_chat_grants = self::tbl_admin_chat_grants();
 		$macros = self::tbl_macros();
 		$wh = self::tbl_working_hours();
 		$slap = self::tbl_sla_policies();
@@ -707,6 +744,75 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 			KEY idx_event_uuid (event_uuid)
 		) {$charset};";
 
+		$sql[] = "CREATE TABLE `{$admin_chat_grants}` (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			user_id BIGINT UNSIGNED NOT NULL,
+			character_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+			channel_binding_id BIGINT UNSIGNED NULL,
+			blog_id BIGINT UNSIGNED NOT NULL,
+			platform VARCHAR(32) NOT NULL DEFAULT '',
+			chat_id VARCHAR(190) NOT NULL DEFAULT '',
+			status VARCHAR(16) NOT NULL DEFAULT 'active',
+			allow_producer TINYINT(1) NOT NULL DEFAULT 1,
+			allow_retriever TINYINT(1) NOT NULL DEFAULT 0,
+			allow_distributor TINYINT(1) NOT NULL DEFAULT 0,
+			tool_overrides_json LONGTEXT NULL,
+			inbox_notebook_id BIGINT UNSIGNED NULL,
+			quota_per_day INT NOT NULL DEFAULT 50,
+			quota_used_today INT NOT NULL DEFAULT 0,
+			quota_reset_at DATETIME NULL,
+			granted_by_user_id BIGINT UNSIGNED NULL,
+			granted_at DATETIME NOT NULL,
+			revoked_at DATETIME NULL,
+			revoked_by BIGINT UNSIGNED NULL,
+			expires_at DATETIME NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uniq_user_guru_binding (user_id, character_id, channel_binding_id),
+			KEY idx_chat (platform, chat_id, status),
+			KEY idx_status (status),
+			KEY idx_blog (blog_id, status)
+		) {$charset};";
+
+		// [2026-10-11 10:19 AM Johnny Chu - Chu Hoàng Anh] CORE-REDUCTION WP-20 Z-7d — bizcity_cg_broadcasts + bizcity_cg_broadcast_recipients (same DDL as the former core installer).
+		if ( class_exists( 'BizCity_Broadcast_Installer' ) ) {
+			foreach ( BizCity_Broadcast_Installer::table_sql( $charset ) as $stmt ) {
+				$sql[] = $stmt;
+			}
+		}
+
+		// [2026-11-20 08:06 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 S156-3.1 (D156-5) — teams + team_members moved here with BizCity_CRM_Team_Manager
+		// (same DDL as the former core migrate_phase_053; existing tables are left as they are, dbDelta only adds what is missing).
+		$teams        = self::tbl_teams();
+		$team_members = self::tbl_team_members();
+		$sql[] = "CREATE TABLE `{$teams}` (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			name VARCHAR(190) NOT NULL,
+			description TEXT NULL,
+			allow_auto_assign TINYINT(1) NOT NULL DEFAULT 1,
+			is_active TINYINT(1) NOT NULL DEFAULT 1,
+			created_by BIGINT UNSIGNED NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uniq_name (name),
+			KEY idx_active (is_active, allow_auto_assign)
+		) {$charset};";
+		$sql[] = "CREATE TABLE `{$team_members}` (
+			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+			team_id BIGINT UNSIGNED NOT NULL,
+			user_id BIGINT UNSIGNED NOT NULL,
+			member_role VARCHAR(20) NOT NULL DEFAULT 'agent',
+			is_active TINYINT(1) NOT NULL DEFAULT 1,
+			last_assigned_at DATETIME NULL,
+			created_at DATETIME NOT NULL,
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY uniq_team_user (team_id, user_id),
+			KEY idx_user_active (user_id, is_active)
+		) {$charset};";
+
 		return $sql;
 	}
 
@@ -728,7 +834,67 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 		self::migrate_phase_063();
 		self::migrate_phase_063c();
 		self::migrate_phase_071();
+		self::migrate_phase_146();
 		self::invalidate_tables_cache();
+	}
+
+	/**
+	 * [2026-10-28 05:58 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L1 (doc 21 §6, ext db 1.1.0) — "Lịch thông báo" rows live in the
+	 * engine-A tables (D146-02: 0 new tables). broadcasts: channel_kind (legacy | zalo_group_broadcast), broadcast_ref BC-… (UNIQUE),
+	 * batch_label, account_ref (one Zalo number per row, D146-15), rev, variants/attachments/schedule JSON, cell_state (+ reason),
+	 * last_run_json (read-through cache of the cell's last run), cell_push_json (push bookkeeping). recipients: target_kind,
+	 * thread_ref (the real thread uid — server-only), display_name snapshot, UNIQUE(broadcast_id, conversation_id). ADD-only, idempotent.
+	 */
+	public static function migrate_phase_146(): void {
+		global $wpdb;
+		$bc   = self::tbl_broadcasts();
+		$cols = array(
+			'channel_kind'     => "VARCHAR(24) NOT NULL DEFAULT 'legacy'",
+			'broadcast_ref'    => 'VARCHAR(16) NULL',
+			'batch_label'      => 'VARCHAR(16) NULL',
+			'account_ref'      => 'VARCHAR(64) NULL',
+			'rev'              => 'INT UNSIGNED NOT NULL DEFAULT 1',
+			'variants_json'    => 'LONGTEXT NULL',
+			'attachments_json' => 'LONGTEXT NULL',
+			'schedule_json'    => 'LONGTEXT NULL',
+			'cell_state'       => 'VARCHAR(24) NULL',
+			'state_reason'     => 'VARCHAR(191) NULL',
+			'last_run_json'    => 'LONGTEXT NULL',
+			'cell_push_json'   => 'LONGTEXT NULL',
+		);
+		foreach ( $cols as $col => $ddl ) {
+			if ( ! self::column_exists( $bc, $col ) ) {
+				$wpdb->query( "ALTER TABLE `{$bc}` ADD COLUMN `{$col}` {$ddl}" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			}
+		}
+		if ( ! self::index_exists( $bc, 'uniq_broadcast_ref' ) ) {
+			$wpdb->query( "ALTER TABLE `{$bc}` ADD UNIQUE KEY `uniq_broadcast_ref` (`broadcast_ref`)" ); // phpcs:ignore
+		}
+		if ( ! self::index_exists( $bc, 'idx_kind_account' ) ) {
+			$wpdb->query( "ALTER TABLE `{$bc}` ADD KEY `idx_kind_account` (`channel_kind`, `account_ref`, `cell_state`)" ); // phpcs:ignore
+		}
+		if ( ! self::index_exists( $bc, 'idx_batch' ) ) {
+			$wpdb->query( "ALTER TABLE `{$bc}` ADD KEY `idx_batch` (`batch_label`)" ); // phpcs:ignore
+		}
+		$rcp  = self::tbl_broadcast_recipients();
+		$rcol = array(
+			'target_kind'  => 'VARCHAR(8) NULL',
+			'thread_ref'   => 'VARCHAR(64) NULL',
+			'display_name' => 'VARCHAR(191) NULL',
+		);
+		foreach ( $rcol as $col => $ddl ) {
+			if ( ! self::column_exists( $rcp, $col ) ) {
+				$wpdb->query( "ALTER TABLE `{$rcp}` ADD COLUMN `{$col}` {$ddl}" ); // phpcs:ignore
+			}
+		}
+		if ( ! self::index_exists( $rcp, 'uniq_bc_conv' ) ) {
+			$wpdb->query( "ALTER TABLE `{$rcp}` ADD UNIQUE KEY `uniq_bc_conv` (`broadcast_id`, `conversation_id`)" ); // phpcs:ignore
+		}
+		foreach ( array( $bc, $rcp ) as $t ) {
+			if ( function_exists( 'bizcity_tbl_invalidate' ) ) {
+				bizcity_tbl_invalidate( $t );
+			}
+		}
 	}
 
 	/**

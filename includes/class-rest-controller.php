@@ -19,7 +19,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
-class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
+// [2026-11-20 08:06 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 S156-3.2 — parent is the plugin half of the spine REST (which extends the core class), so every inherited method is still inherited.
+class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST_Ext {
 
 	public static function register_routes(): void {
 		$ns = BIZCITY_CRM_REST_NS;
@@ -1150,41 +1151,8 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			'permission_callback' => array( __CLASS__, 'can_write' ),
 		) );
 
-		/* ============ PHASE 0.37.1 — Gmail SMTP + Email Automation ============ */
-		register_rest_route( $ns, '/gmail-smtp-accounts', array(
-			array(
-				'methods'             => WP_REST_Server::READABLE,
-				'callback'            => array( __CLASS__, 'get_gmail_smtp_accounts' ),
-				'permission_callback' => array( __CLASS__, 'can_write' ),
-			),
-			array(
-				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array( __CLASS__, 'post_gmail_smtp_account' ),
-				'permission_callback' => array( __CLASS__, 'can_write' ),
-			),
-		) );
-		register_rest_route( $ns, '/gmail-smtp-accounts/(?P<id>\d+)', array(
-			array(
-				'methods'             => WP_REST_Server::EDITABLE,
-				'callback'            => array( __CLASS__, 'put_gmail_smtp_account' ),
-				'permission_callback' => array( __CLASS__, 'can_write' ),
-			),
-			array(
-				'methods'             => WP_REST_Server::DELETABLE,
-				'callback'            => array( __CLASS__, 'delete_gmail_smtp_account' ),
-				'permission_callback' => array( __CLASS__, 'can_write' ),
-			),
-		) );
-		register_rest_route( $ns, '/gmail-smtp-accounts/(?P<id>\d+)/test', array(
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => array( __CLASS__, 'post_gmail_smtp_account_test' ),
-			'permission_callback' => array( __CLASS__, 'can_write' ),
-		) );
-		register_rest_route( $ns, '/gmail-smtp-accounts/(?P<id>\d+)/promote', array(
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => array( __CLASS__, 'post_gmail_smtp_account_promote' ),
-			'permission_callback' => array( __CLASS__, 'can_write' ),
-		) );
+		/* ============ PHASE 0.37.1 — Email Automation ============ */
+		// [2026-10-20 10:37 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.126 G-C — /gmail-smtp-accounts* retired (Gmail goes through the cell + Composio).
 		register_rest_route( $ns, '/email-events', array(
 			'methods'             => WP_REST_Server::READABLE,
 			'callback'            => array( __CLASS__, 'get_email_events' ),
@@ -1239,11 +1207,8 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			'callback'            => array( __CLASS__, 'webhook_telegram_receive' ),
 			'permission_callback' => '__return_true',
 		) );
-		register_rest_route( $ns, '/webhooks/web-widget', array(
-			'methods'             => WP_REST_Server::CREATABLE,
-			'callback'            => array( __CLASS__, 'webhook_web_widget_receive' ),
-			'permission_callback' => '__return_true',
-		) );
+		// [2026-10-25 Johnny Chu - Chu Hoàng Anh] PHASE-0.126 R126-RTR (owner: public webchat no longer matters) — POST /webhooks/web-widget
+		// (public JS-snippet visitor chat) removed with the core web_widget adapter; a stale snippet now gets rest_no_route (404).
 
 		// PHASE 0.35 M6.W1 — Campaign CRUD + stats. Admin/editor only.
 		register_rest_route( $ns, '/campaigns', array(
@@ -1846,7 +1811,7 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 		if ( $user_id <= 0 || ! $request instanceof WP_REST_Request || ! class_exists( 'BizCity_CRM_Repository' ) ) { return false; }
 		$object_type = sanitize_key( (string) $request->get_param( 'object_type' ) );
 		$object_id = (int) $request->get_param( 'object_id' );
-		return BizCity_CRM_Repository::can_user_move_order_care( $object_type, $object_id, $user_id );
+		return BizCity_CRM_Repository_Ext::can_user_move_order_care( $object_type, $object_id, $user_id );
 	}
 
 	/* ------- handlers ------- */
@@ -1979,7 +1944,7 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			if ( strlen( $idempotency_key ) < 16 || strlen( $idempotency_key ) > 190 ) { throw new \RuntimeException( 'idempotency_key_required' ); }
 			$changes = $req->get_param( 'changes' );
 			$changes = is_array( $changes ) ? $changes : array();
-			$result = BizCity_CRM_Repository::move_order_care_object(
+			$result = BizCity_CRM_Repository_Ext::move_order_care_object(
 				sanitize_key( (string) $req->get_param( 'object_type' ) ),
 				(int) $req->get_param( 'object_id' ),
 				sanitize_key( (string) $req->get_param( 'target_state' ) ),
@@ -2089,48 +2054,8 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 		return new WP_REST_Response( array( 'ok' => true, 'message_id' => (int) $mid ), 200 );
 	}
 
-	/** POST /webhooks/web-widget — visitor message from JS snippet. */
-	public static function webhook_web_widget_receive( WP_REST_Request $req ) {
-		$payload = $req->get_json_params();
-		if ( ! is_array( $payload ) ) {
-			$payload = $req->get_params();
-		}
-		$widget_key = (string) ( $payload['widget_key'] ?? '' );
-		if ( $widget_key === '' || strlen( $widget_key ) < 12 ) {
-			return new WP_Error( 'bad_request', 'missing widget_key', array( 'status' => 400 ) );
-		}
-		// Locate inbox + enforce CORS allow-list.
-		$inbox = null;
-		foreach ( BizCity_CRM_Repository::list_inboxes() as $ib ) {
-			if ( ( $ib['channel_type'] ?? '' ) !== 'web_widget' ) { continue; }
-			if ( ( $ib['channel_ref_id'] ?? '' ) === $widget_key ) { $inbox = $ib; break; }
-		}
-		if ( ! $inbox ) {
-			return new WP_Error( 'forbidden', 'widget_key not registered', array( 'status' => 403 ) );
-		}
-		$settings = $inbox['settings_json'] ? json_decode( $inbox['settings_json'], true ) : array();
-		$origins  = array_filter( array_map( 'trim', preg_split( '/\R+/', (string) ( $settings['allowed_origins'] ?? '' ) ) ) );
-		if ( $origins ) {
-			$origin = (string) $req->get_header( 'origin' );
-			if ( $origin !== '' && ! in_array( $origin, $origins, true ) ) {
-				return new WP_Error( 'forbidden', 'origin not allowed', array( 'status' => 403 ) );
-			}
-		}
-		$adapter = BizCity_CRM_Channel_Registry::get( 'web_widget' );
-		if ( ! $adapter ) {
-			return new WP_Error( 'not_ready', 'adapter not registered', array( 'status' => 503 ) );
-		}
-		$norm = $adapter->normalize_inbound( $payload );
-		if ( ! $norm ) {
-			return new WP_Error( 'bad_request', 'invalid payload', array( 'status' => 400 ) );
-		}
-		try {
-			$mid = BizCity_CRM_Facebook_Ingestor::instance()->ingest( $adapter, $norm );
-		} catch ( \Throwable $e ) {
-			return new WP_REST_Response( array( 'ok' => false, 'error' => $e->getMessage() ), 200 );
-		}
-		return new WP_REST_Response( array( 'ok' => true, 'message_id' => (int) $mid ), 200 );
-	}
+	// [2026-10-25 Johnny Chu - Chu Hoàng Anh] PHASE-0.126 R126-RTR — webhook_web_widget_receive() (POST /webhooks/web-widget, public snippet visitor chat)
+	// removed with its route; the core BizCity_CRM_Adapter_Web_Widget is archived at bizcity-twin-ai/core/_archived/admin-routers-r126rt2-20261025/.
 
 	/* ==========================================================
 	 * PHASE 0.35 M6.W1 — Campaign CRUD + Stats handlers
@@ -2738,6 +2663,10 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			$limit  = max( 1, min( (int) ( $req->get_param( 'limit' ) ?: 50 ), 200 ) );
 			$offset = max( 0, (int) $req->get_param( 'offset' ) );
 			$where  = '1=1';
+			// [2026-10-28 07:10 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L1 — "Lịch thông báo" rows share this table (D146-02); they live in their own tab.
+			if ( BizCity_CRM_DB_Installer_V2::column_exists( $tbl, 'channel_kind' ) ) {
+				$where .= " AND channel_kind <> 'zalo_group_broadcast'";
+			}
 			$params = array();
 			if ( $status !== '' ) {
 				$where  .= ' AND status = %s';
@@ -2944,7 +2873,8 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 
 		// Filter by lead_score minimum.
 		if ( isset( $filter['lead_score_min'] ) && (int) $filter['lead_score_min'] > 0 ) {
-			$where[]  = 'c.lead_score >= %d';
+			// [2026-10-10 12:33 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.95 D95-6 — effective score: the person's when set, else the cell's.
+			$where[]  = ( class_exists( 'BizCity_CRM_Lead_Score' ) ? BizCity_CRM_Lead_Score::effective_sql( 'c', BizCity_CRM_Lead_Score::has_cell_column() ) : 'c.lead_score' ) . ' >= %d';
 			$params[] = (int) $filter['lead_score_min'];
 		}
 
@@ -5412,7 +5342,7 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 		return self::wrap( static function () use ( $req ) {
 			$args = array( 'target' => (string) ( $req->get_param( 'target' ) ?? '' ) );
 			if ( $args['target'] === '' ) { unset( $args['target'] ); }
-			$rows = BizCity_CRM_Repository::list_custom_attribute_defs( $args );
+			$rows = BizCity_CRM_Repository_Ext::list_custom_attribute_defs( $args );
 			return array(
 				'definitions' => array_map( array( __CLASS__, 'shape_custom_attribute_def' ), $rows ),
 				'count'       => count( $rows ),
@@ -5422,7 +5352,7 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 
 	public static function get_custom_attribute_def( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
-			$row = BizCity_CRM_Repository::get_custom_attribute_def( (int) $req->get_param( 'id' ) );
+			$row = BizCity_CRM_Repository_Ext::get_custom_attribute_def( (int) $req->get_param( 'id' ) );
 			if ( ! $row ) { return new WP_Error( 'not_found', 'Definition not found', array( 'status' => 404 ) ); }
 			return self::shape_custom_attribute_def( $row );
 		} );
@@ -5433,33 +5363,33 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			$body = self::extract_json_body( $req );
 			$err  = self::validate_custom_attr_def( $body );
 			if ( is_wp_error( $err ) ) { return $err; }
-			$id = BizCity_CRM_Repository::upsert_custom_attribute_def( $body );
+			$id = BizCity_CRM_Repository_Ext::upsert_custom_attribute_def( $body );
 			if ( ! $id ) {
 				return new WP_Error( 'insert_failed', 'Could not create custom attribute definition', array( 'status' => 500 ) );
 			}
-			return self::shape_custom_attribute_def( BizCity_CRM_Repository::get_custom_attribute_def( $id ) );
+			return self::shape_custom_attribute_def( BizCity_CRM_Repository_Ext::get_custom_attribute_def( $id ) );
 		} );
 	}
 
 	public static function put_custom_attribute_def( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
 			$id = (int) $req->get_param( 'id' );
-			if ( ! BizCity_CRM_Repository::get_custom_attribute_def( $id ) ) {
+			if ( ! BizCity_CRM_Repository_Ext::get_custom_attribute_def( $id ) ) {
 				return new WP_Error( 'not_found', 'Definition not found', array( 'status' => 404 ) );
 			}
 			$body       = self::extract_json_body( $req );
 			$body['id'] = $id;
 			$err        = self::validate_custom_attr_def( $body, false );
 			if ( is_wp_error( $err ) ) { return $err; }
-			BizCity_CRM_Repository::upsert_custom_attribute_def( $body );
-			return self::shape_custom_attribute_def( BizCity_CRM_Repository::get_custom_attribute_def( $id ) );
+			BizCity_CRM_Repository_Ext::upsert_custom_attribute_def( $body );
+			return self::shape_custom_attribute_def( BizCity_CRM_Repository_Ext::get_custom_attribute_def( $id ) );
 		} );
 	}
 
 	public static function delete_custom_attribute_def( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
 			$id = (int) $req->get_param( 'id' );
-			$ok = BizCity_CRM_Repository::delete_custom_attribute_def( $id );
+			$ok = BizCity_CRM_Repository_Ext::delete_custom_attribute_def( $id );
 			return array( 'deleted' => $ok, 'id' => $id );
 		} );
 	}
@@ -5531,14 +5461,14 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			if ( $active !== null ) { $args['active'] = (int) (bool) $active; }
 			if ( $args['visibility'] === '' ) { unset( $args['visibility'] ); }
 			if ( $args['q']          === '' ) { unset( $args['q'] ); }
-			$rows = BizCity_CRM_Repository::list_macros( $args );
+			$rows = BizCity_CRM_Repository_Ext::list_macros( $args );
 			return array( 'macros' => array_map( array( __CLASS__, 'shape_macro' ), $rows ), 'count' => count( $rows ) );
 		} );
 	}
 
 	public static function get_macro( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
-			$row = BizCity_CRM_Repository::get_macro( (int) $req->get_param( 'id' ) );
+			$row = BizCity_CRM_Repository_Ext::get_macro( (int) $req->get_param( 'id' ) );
 			if ( ! $row ) { return new WP_Error( 'not_found', 'Macro not found', array( 'status' => 404 ) ); }
 			return self::shape_macro( $row );
 		} );
@@ -5549,31 +5479,31 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			$body = self::extract_json_body( $req );
 			$err  = self::validate_macro_body( $body );
 			if ( is_wp_error( $err ) ) { return $err; }
-			$id = BizCity_CRM_Repository::upsert_macro( $body );
+			$id = BizCity_CRM_Repository_Ext::upsert_macro( $body );
 			if ( ! $id ) { return new WP_Error( 'insert_failed', 'Could not create macro', array( 'status' => 500 ) ); }
-			return self::shape_macro( BizCity_CRM_Repository::get_macro( $id ) );
+			return self::shape_macro( BizCity_CRM_Repository_Ext::get_macro( $id ) );
 		} );
 	}
 
 	public static function put_macro( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
 			$id = (int) $req->get_param( 'id' );
-			if ( ! BizCity_CRM_Repository::get_macro( $id ) ) {
+			if ( ! BizCity_CRM_Repository_Ext::get_macro( $id ) ) {
 				return new WP_Error( 'not_found', 'Macro not found', array( 'status' => 404 ) );
 			}
 			$body       = self::extract_json_body( $req );
 			$body['id'] = $id;
 			$err        = self::validate_macro_body( $body, false );
 			if ( is_wp_error( $err ) ) { return $err; }
-			BizCity_CRM_Repository::upsert_macro( $body );
-			return self::shape_macro( BizCity_CRM_Repository::get_macro( $id ) );
+			BizCity_CRM_Repository_Ext::upsert_macro( $body );
+			return self::shape_macro( BizCity_CRM_Repository_Ext::get_macro( $id ) );
 		} );
 	}
 
 	public static function delete_macro( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
 			$id = (int) $req->get_param( 'id' );
-			$ok = BizCity_CRM_Repository::delete_macro( $id );
+			$ok = BizCity_CRM_Repository_Ext::delete_macro( $id );
 			return array( 'deleted' => $ok, 'id' => $id );
 		} );
 	}
@@ -5581,7 +5511,7 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 	public static function post_macro_preview( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
 			$id    = (int) $req->get_param( 'id' );
-			$macro = BizCity_CRM_Repository::get_macro( $id );
+			$macro = BizCity_CRM_Repository_Ext::get_macro( $id );
 			if ( ! $macro ) { return new WP_Error( 'not_found', 'Macro not found', array( 'status' => 404 ) ); }
 			$conv_id = (int) ( $req->get_param( 'conversation_id' ) ?? 0 );
 			$ctx     = $conv_id > 0 ? BizCity_CRM_Template_Renderer::build_context_from_conversation( $conv_id ) : array();
@@ -5601,7 +5531,7 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 	public static function post_macro_run( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
 			$id    = (int) $req->get_param( 'id' );
-			$macro = BizCity_CRM_Repository::get_macro( $id );
+			$macro = BizCity_CRM_Repository_Ext::get_macro( $id );
 			if ( ! $macro ) { return new WP_Error( 'not_found', 'Macro not found', array( 'status' => 404 ) ); }
 			$conv_id = (int) ( $req->get_param( 'conversation_id' ) ?? 0 );
 			$conv    = $conv_id > 0 ? BizCity_CRM_Repository::get_conversation( $conv_id ) : null;
@@ -5626,8 +5556,13 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 				'event_uuid'      => null,
 				'dry_run'         => (bool) $req->get_param( 'dry_run' ),
 			);
+			// [2026-10-25 Johnny Chu - Chu Hoàng Anh] PHASE-0.126 R126-AUD A6 — the CRM rule engine (Action_Runner / Action_Registry) left in PHASE-0.96
+			// (twin-crm/_archived/PHASE-0.96/); running a macro called it unguarded (fatal). Answer a clear error instead.
+			if ( ! class_exists( 'BizCity_CRM_Action_Runner' ) ) {
+				return new WP_Error( 'macro_actions_retired', 'Macro hành động đã ngừng (bộ chạy quy tắc CRM đã gỡ). Hãy dùng Automation.', array( 'status' => 501 ) );
+			}
 			$results = BizCity_CRM_Action_Runner::run( $action_set, $run_ctx );
-			BizCity_CRM_Repository::bump_macro_run_count( $id );
+			BizCity_CRM_Repository_Ext::bump_macro_run_count( $id );
 			return array(
 				'macro_id'   => $id,
 				'rendered'   => $rendered,
@@ -5663,6 +5598,10 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			return new WP_Error( 'empty_macro', 'Macro must have at least a template or actions', array( 'status' => 422 ) );
 		}
 		if ( $has_actions ) {
+			// [2026-10-25 Johnny Chu - Chu Hoàng Anh] PHASE-0.126 R126-AUD A6 — Action_Registry left in PHASE-0.96 (was an unguarded fatal).
+			if ( ! class_exists( 'BizCity_CRM_Action_Registry' ) ) {
+				return new WP_Error( 'macro_actions_retired', 'Macro chỉ còn hỗ trợ mẫu tin nhắn (bộ chạy quy tắc CRM đã gỡ).', array( 'status' => 422 ) );
+			}
 			$known = array_keys( BizCity_CRM_Action_Registry::all() );
 			foreach ( $body['actions'] as $i => $a ) {
 				if ( ! in_array( (string) ( $a['type'] ?? '' ), $known, true ) ) {
@@ -5704,8 +5643,8 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 		return self::wrap( static function () use ( $req ) {
 			$inbox_id = (int) $req->get_param( 'inbox_id' );
 			if ( $inbox_id <= 0 ) { return new WP_Error( 'invalid_inbox_id', 'inbox_id required', array( 'status' => 422 ) ); }
-			BizCity_CRM_Repository::ensure_working_hours_seeded( $inbox_id );
-			$rows = BizCity_CRM_Repository::list_working_hours( $inbox_id );
+			BizCity_CRM_Repository_Ext::ensure_working_hours_seeded( $inbox_id );
+			$rows = BizCity_CRM_Repository_Ext::list_working_hours( $inbox_id );
 			return array(
 				'inbox_id' => $inbox_id,
 				'days'     => array_map( array( __CLASS__, 'shape_working_hour_row' ), $rows ),
@@ -5724,10 +5663,10 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			foreach ( $days as $row ) {
 				if ( ! is_array( $row ) ) { continue; }
 				$row['inbox_id'] = $inbox_id;
-				if ( BizCity_CRM_Repository::upsert_working_hour_row( $row ) ) { $saved++; }
+				if ( BizCity_CRM_Repository_Ext::upsert_working_hour_row( $row ) ) { $saved++; }
 			}
 			BizCity_CRM_Working_Hours::invalidate_cache( $inbox_id );
-			$rows = BizCity_CRM_Repository::list_working_hours( $inbox_id );
+			$rows = BizCity_CRM_Repository_Ext::list_working_hours( $inbox_id );
 			return array(
 				'inbox_id' => $inbox_id,
 				'saved'    => $saved,
@@ -5763,14 +5702,14 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			$args = array( 'q' => (string) ( $req->get_param( 'q' ) ?? '' ) );
 			if ( $req->get_param( 'active' ) !== null ) { $args['active'] = (int) (bool) $req->get_param( 'active' ); }
 			if ( $args['q'] === '' ) { unset( $args['q'] ); }
-			$rows = BizCity_CRM_Repository::list_sla_policies( $args );
+			$rows = BizCity_CRM_Repository_Ext::list_sla_policies( $args );
 			return array( 'policies' => array_map( array( __CLASS__, 'shape_sla_policy' ), $rows ), 'count' => count( $rows ) );
 		} );
 	}
 
 	public static function get_sla_policy( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
-			$row = BizCity_CRM_Repository::get_sla_policy( (int) $req->get_param( 'id' ) );
+			$row = BizCity_CRM_Repository_Ext::get_sla_policy( (int) $req->get_param( 'id' ) );
 			if ( ! $row ) { return new WP_Error( 'not_found', 'SLA policy not found', array( 'status' => 404 ) ); }
 			return self::shape_sla_policy( $row );
 		} );
@@ -5781,31 +5720,31 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			$body = self::extract_json_body( $req );
 			$err  = self::validate_sla_policy_body( $body );
 			if ( is_wp_error( $err ) ) { return $err; }
-			$id = BizCity_CRM_Repository::upsert_sla_policy( $body );
+			$id = BizCity_CRM_Repository_Ext::upsert_sla_policy( $body );
 			if ( ! $id ) { return new WP_Error( 'insert_failed', 'Could not create SLA policy', array( 'status' => 500 ) ); }
-			return self::shape_sla_policy( BizCity_CRM_Repository::get_sla_policy( $id ) );
+			return self::shape_sla_policy( BizCity_CRM_Repository_Ext::get_sla_policy( $id ) );
 		} );
 	}
 
 	public static function put_sla_policy( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
 			$id = (int) $req->get_param( 'id' );
-			if ( ! BizCity_CRM_Repository::get_sla_policy( $id ) ) {
+			if ( ! BizCity_CRM_Repository_Ext::get_sla_policy( $id ) ) {
 				return new WP_Error( 'not_found', 'SLA policy not found', array( 'status' => 404 ) );
 			}
 			$body       = self::extract_json_body( $req );
 			$body['id'] = $id;
 			$err        = self::validate_sla_policy_body( $body, false );
 			if ( is_wp_error( $err ) ) { return $err; }
-			BizCity_CRM_Repository::upsert_sla_policy( $body );
-			return self::shape_sla_policy( BizCity_CRM_Repository::get_sla_policy( $id ) );
+			BizCity_CRM_Repository_Ext::upsert_sla_policy( $body );
+			return self::shape_sla_policy( BizCity_CRM_Repository_Ext::get_sla_policy( $id ) );
 		} );
 	}
 
 	public static function delete_sla_policy( WP_REST_Request $req ) {
 		return self::wrap( static function () use ( $req ) {
 			$id = (int) $req->get_param( 'id' );
-			$ok = BizCity_CRM_Repository::delete_sla_policy( $id );
+			$ok = BizCity_CRM_Repository_Ext::delete_sla_policy( $id );
 			return array( 'deleted' => $ok, 'id' => $id );
 		} );
 	}
@@ -5863,9 +5802,9 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			} catch ( Throwable $error ) {
 				return array( 'conversation_id' => $cid, 'applied' => null, '_degraded' => true );
 			}
-			$row = BizCity_CRM_Repository::get_applied_sla_for_conversation( $cid );
+			$row = BizCity_CRM_Repository_Ext::get_applied_sla_for_conversation( $cid );
 			if ( ! $row ) { return array( 'conversation_id' => $cid, 'applied' => null ); }
-			$policy = BizCity_CRM_Repository::get_sla_policy( (int) $row['sla_policy_id'] );
+			$policy = BizCity_CRM_Repository_Ext::get_sla_policy( (int) $row['sla_policy_id'] );
 			return array(
 				'conversation_id' => $cid,
 				'applied'         => array(
@@ -6594,7 +6533,9 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 			$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
 			$where[] = $wpdb->prepare( "id IN ({$placeholders})", $ids );
 		}
-		$sql = "SELECT id, name, first_name, last_name, email, phone, acquisition_source, segment, lead_score, owner_id, created_at, updated_at FROM `{$tbl}` WHERE " . implode( ' AND ', $where ) . ' ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT ' . ( BizCity_CRM_Export::MAX_ROWS + 1 );
+		// [2026-10-10 12:33 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.95 D95-6 — export the effective score + where it comes from (person / cell).
+		$cell_col = class_exists( 'BizCity_CRM_Lead_Score' ) && BizCity_CRM_Lead_Score::has_cell_column() ? ', lead_score_cell' : '';
+		$sql = "SELECT id, name, first_name, last_name, email, phone, acquisition_source, segment, lead_score{$cell_col}, owner_id, created_at, updated_at FROM `{$tbl}` WHERE " . implode( ' AND ', $where ) . ' ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT ' . ( BizCity_CRM_Export::MAX_ROWS + 1 );
 		$source_rows = $wpdb->get_results( $sql, ARRAY_A );
 		if ( count( $source_rows ) > BizCity_CRM_Export::MAX_ROWS ) {
 			return new WP_Error( 'export_limit_exceeded', 'Thu hẹp bộ lọc trước khi xuất dữ liệu.', array( 'status' => 422 ) );
@@ -6607,7 +6548,8 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 				'phone'      => (string) $row['phone'],
 				'source'     => (string) $row['acquisition_source'],
 				'segment'    => (string) $row['segment'],
-				'lead_score' => (int) $row['lead_score'],
+				'lead_score' => class_exists( 'BizCity_CRM_Lead_Score' ) ? BizCity_CRM_Lead_Score::effective( $row ) : (int) $row['lead_score'],
+				'lead_score_source' => class_exists( 'BizCity_CRM_Lead_Score' ) ? BizCity_CRM_Lead_Score::source( $row ) : 'person',
 				'owner_id'   => $row['owner_id'] ? (int) $row['owner_id'] : '',
 				'created_at' => (string) $row['created_at'],
 				'updated_at' => (string) $row['updated_at'],
@@ -6623,6 +6565,7 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 				'source'     => 'Source',
 				'segment'    => 'Segment',
 				'lead_score' => 'Lead Score',
+				'lead_score_source' => 'Lead Score Source',
 				'owner_id'   => 'Owner ID',
 				'created_at' => 'Created At',
 				'updated_at' => 'Updated At',
@@ -8909,62 +8852,8 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST {
 	}
 
 	/* ============================================================
-	 * PHASE 0.37.1 — Gmail SMTP + Email Automation handlers
+	 * PHASE 0.37.1 — Email Automation handlers (Gmail account handlers retired PHASE-0.126 G-C)
 	 * ============================================================ */
-
-	public static function get_gmail_smtp_accounts( WP_REST_Request $req ) {
-		return self::wrap( static function () {
-			return BizCity_CRM_Gmail_SMTP_Repo::list_accounts();
-		} );
-	}
-
-	public static function post_gmail_smtp_account( WP_REST_Request $req ) {
-		return self::wrap( static function () use ( $req ) {
-			$body = $req->get_json_params() ?: array();
-			$id   = BizCity_CRM_Gmail_SMTP_Repo::create( $body );
-			return BizCity_CRM_Gmail_SMTP_Repo::get( $id );
-		} );
-	}
-
-	public static function put_gmail_smtp_account( WP_REST_Request $req ) {
-		return self::wrap( static function () use ( $req ) {
-			$body = $req->get_json_params() ?: array();
-			BizCity_CRM_Gmail_SMTP_Repo::update( (int) $req['id'], $body );
-			return BizCity_CRM_Gmail_SMTP_Repo::get( (int) $req['id'] );
-		} );
-	}
-
-	public static function delete_gmail_smtp_account( WP_REST_Request $req ) {
-		return self::wrap( static function () use ( $req ) {
-			BizCity_CRM_Gmail_SMTP_Repo::delete( (int) $req['id'] );
-			return array( 'deleted' => true );
-		} );
-	}
-
-	public static function post_gmail_smtp_account_test( WP_REST_Request $req ) {
-		$id   = (int) $req['id'];
-		$body = $req->get_json_params() ?: array();
-		$to   = isset( $body['to'] ) ? sanitize_email( $body['to'] ) : '';
-		if ( ! $to ) {
-			$cu = wp_get_current_user();
-			$to = $cu ? $cu->user_email : '';
-		}
-		$res = BizCity_CRM_Gmail_SMTP_Repo::send_via( $id, array(
-			'to'      => $to,
-			'subject' => '[BizCity CRM] Test Gmail SMTP — ' . current_time( 'mysql' ),
-			'body'    => '<p>Đây là email kiểm tra từ <strong>BizCity CRM</strong>.</p><p>Nếu bạn nhận được email này → cấu hình Gmail SMTP đã đúng.</p>',
-			'is_html' => true,
-		) );
-		BizCity_CRM_Gmail_SMTP_Repo::record_test( $id, ! empty( $res['ok'] ), (string) ( $res['error'] ?? '' ) );
-		return new WP_REST_Response( $res, 200 );
-	}
-
-	public static function post_gmail_smtp_account_promote( WP_REST_Request $req ) {
-		return self::wrap( static function () use ( $req ) {
-			$ok = BizCity_CRM_Gmail_SMTP_Repo::promote_to_global( (int) $req['id'] );
-			return array( 'promoted' => $ok );
-		} );
-	}
 
 	public static function get_email_events( WP_REST_Request $req ) {
 		return self::wrap( static function () {
@@ -9256,8 +9145,8 @@ $channel_palette = array(
 'zalo'           => array( 'label' => 'Zalo OA',   'color' => '#1d4ed8' ),
 'whatsapp_cloud' => array( 'label' => 'WhatsApp',  'color' => '#22c55e' ),
 'telegram'       => array( 'label' => 'Telegram',  'color' => '#06b6d4' ),
-'web_widget'     => array( 'label' => 'Website',   'color' => '#10b981' ),
-'email_imap'     => array( 'label' => 'Email',     'color' => '#f59e0b' ),
+// [2026-10-25 Johnny Chu - Chu Hoàng Anh] PHASE-0.126 R126-RTR — 'web_widget' (Website) removed; old rows fall back to ucfirst(code) + grey below.
+'email_imap'    => array( 'label' => 'Email',     'color' => '#f59e0b' ),
 'tiktok'         => array( 'label' => 'TikTok',    'color' => '#0f172a' ),
 'hotline'        => array( 'label' => 'Hotline',   'color' => '#a855f7' ),
 );

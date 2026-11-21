@@ -340,7 +340,7 @@ final class BizCity_CRM_Staff_REST {
 					array( 'role' => 'system', 'content' => 'Bạn là trợ lý vận hành CRM. Chỉ dùng số liệu tổng hợp được cung cấp. Không suy đoán, không nhắc đến dữ liệu khách, số điện thoại hay nội dung tin. Trả lời tiếng Việt, tối đa 3 câu và nêu một việc trưởng nhóm nên làm.' ),
 					array( 'role' => 'user', 'content' => $questions[ $question_key ] . "\nDữ liệu team-ops-board:\n" . $llm_payload ),
 				),
-				array( 'purpose' => 'crm_team_assistant', 'max_tokens' => 300, 'temperature' => 0.2 )
+				array( 'purpose' => 'crm_team_assistant', 'caller' => 'crm.team_assistant', 'max_tokens' => 300, 'temperature' => 0.2 )
 			);
 		} catch ( Throwable $e ) {
 			return new WP_REST_Response( array( 'ok' => false, '_degraded' => true, 'code' => 'assistant_unavailable', 'message' => 'Trợ lý Twin tạm thời không trả lời được.', 'hint' => 'Dùng các gợi ý vận hành trên bảng đội hoặc thử lại sau.', 'help_code' => 'assistant_unavailable' ), 200 );

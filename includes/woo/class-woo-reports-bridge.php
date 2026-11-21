@@ -21,6 +21,12 @@
 
 defined( 'ABSPATH' ) || exit;
 
+// [2026-10-09 10:49 PM Johnny Chu - Chu Hoàng Anh] CORE-REDUCTION WP-20 W20-L4 — the money rules moved to core
+// (core/mcp/verticals/woo, BizCity_Woo_Reports_Bridge, D-W20-1): this name is its alias. The class body below stays only for a
+// request where core/mcp is not loaded (plain frontend) or an older core.
+if ( ! class_exists( 'BizCity_CRM_Woo_Reports_Bridge', false ) && class_exists( 'BizCity_Woo_Reports_Bridge' ) ) {
+	class_alias( 'BizCity_Woo_Reports_Bridge', 'BizCity_CRM_Woo_Reports_Bridge' );
+}
 if ( class_exists( 'BizCity_CRM_Woo_Reports_Bridge' ) ) { return; }
 
 final class BizCity_CRM_Woo_Reports_Bridge {

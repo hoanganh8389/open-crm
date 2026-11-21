@@ -116,7 +116,7 @@ final class BizCity_CRM_Flow_Importer {
 		$existing = self::find_macro_by_flow_id( $flow_id );
 		$template = self::derive_template( $flow );
 
-		$macro_id = BizCity_CRM_Repository::upsert_macro( array(
+		$macro_id = BizCity_CRM_Repository_Ext::upsert_macro( array(
 			'id'          => $existing,
 			'name'        => self::clip( (string) $flow['message'], 180 ),
 			'description' => trim( $tag . ' ' . self::clip( (string) ( $flow['prompt'] ?? '' ), 240 ) ),
@@ -134,7 +134,7 @@ final class BizCity_CRM_Flow_Importer {
 			$existing_rule = self::find_rule_by_flow_id( $flow_id );
 			$trigger       = trim( (string) $flow['message_khong_dau'] );
 			if ( $trigger !== '' ) {
-				$rule_id = BizCity_CRM_Repository::upsert_automation_rule( array(
+				$rule_id = BizCity_CRM_Repository_Ext::upsert_automation_rule( array(
 					'id'          => $existing_rule,
 					'name'        => 'Auto-reply: ' . self::clip( (string) $flow['message'], 100 ),
 					'description' => $tag . ' Imported from bizgpt_custom_flows',

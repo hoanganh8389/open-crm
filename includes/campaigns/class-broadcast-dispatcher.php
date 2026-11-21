@@ -375,8 +375,19 @@ final class BizCity_CRM_Broadcast_Dispatcher {
 		}
 
 		// Action 2 — send_message
+		// [2026-10-28 05:55 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L0 — `BizCity_Gateway_Sender::send()` is an INSTANCE method
+		// ( chat_id, message, type, extra ) returning {sent, error}; the static call with ( platform, chat_id, text, images ) was an Error on
+		// PHP 8, so this engine never delivered. Zalo personal mass-send moved to the cell runner (announce/*, doc 21) ⇒ skip with a reason.
+		if ( $do_message && $message_text !== '' && self::is_zalo_personal( $platform ) ) {
+			if ( $cron_mgr ) {
+				$cron_mgr->note_event( 'broadcast_send_failed', array(
+					'queue_id' => (int) $item['id'], 'action' => 'send_message', 'reason' => 'moved_to_cell',
+				) );
+			}
+			return 'moved_to_cell';
+		}
 		if ( $do_message && $message_text !== '' ) {
-			$result = BizCity_Gateway_Sender::send( $platform, $chat_id, $message_text, $images );
+			$result = self::gateway_send( $chat_id, $message_text, $images );
 			if ( is_wp_error( $result ) ) {
 				$code   = $result->get_error_code();
 				$reason = ( strpos( $code, 'token' ) !== false ) ? 'token_invalid'
@@ -416,6 +427,36 @@ final class BizCity_CRM_Broadcast_Dispatcher {
 
 		// best-effort: return true if at least one action attempted, partial fail still logged
 		return $any_failed ? 'http_error' : true;
+	}
+
+	/** [2026-10-28 05:55 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L0 — Zalo personal contacts go through the cell announce runner, not this engine. */
+	public static function is_zalo_personal( $platform ) {
+		return 1 === preg_match( '/^(zalo[_-]?personal|zalop)$/', strtolower( trim( (string) $platform ) ) );
+	}
+
+	/**
+	 * [2026-10-28 05:55 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L0 — one message (+ images) through the gateway instance,
+	 * mapped to WP_Error on failure so the reason bucketing above stays as it was.
+	 *
+	 * @return true|WP_Error
+	 */
+	public static function gateway_send( $chat_id, $message_text, array $images = array() ) {
+		$sender = BizCity_Gateway_Sender::instance();
+		$r      = $sender->send( (string) $chat_id, (string) $message_text, 'text', array( 'source' => 'campaign' ) );
+		if ( empty( $r['sent'] ) ) {
+			return new WP_Error( 'http_error', (string) ( isset( $r['error'] ) ? $r['error'] : 'send_failed' ) );
+		}
+		foreach ( $images as $img ) {
+			$url = is_array( $img ) ? (string) ( isset( $img['url'] ) ? $img['url'] : '' ) : (string) $img;
+			if ( '' === $url ) {
+				continue;
+			}
+			$ri = $sender->send( (string) $chat_id, '', 'image', array( 'image_url' => $url, 'source' => 'campaign' ) );
+			if ( empty( $ri['sent'] ) ) {
+				return new WP_Error( 'http_error', (string) ( isset( $ri['error'] ) ? $ri['error'] : 'image_send_failed' ) );
+			}
+		}
+		return true;
 	}
 
 	/* ------------------------------------------------------------------

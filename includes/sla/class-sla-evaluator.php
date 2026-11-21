@@ -71,7 +71,7 @@ class BizCity_CRM_SLA_Evaluator {
 		$breached  = 0;
 		$met       = 0;
 		try {
-			$rows = BizCity_CRM_Repository::list_active_applied_slas( 500 );
+			$rows = BizCity_CRM_Repository_Ext::list_active_applied_slas( 500 );
 			$now  = time();
 			foreach ( $rows as $row ) {
 				$evaluated++;
@@ -95,7 +95,7 @@ class BizCity_CRM_SLA_Evaluator {
 		$conv    = BizCity_CRM_Repository::get_conversation( $conv_id );
 		if ( ! $conv ) {
 			// Conversation deleted: drop tracking row to inactive state.
-			BizCity_CRM_Repository::update_applied_sla_fields( (int) $row['id'], array(
+			BizCity_CRM_Repository_Ext::update_applied_sla_fields( (int) $row['id'], array(
 				'state'             => 'cancelled',
 				'last_evaluated_at' => $now,
 			) );
@@ -108,11 +108,11 @@ class BizCity_CRM_SLA_Evaluator {
 			$rt_due = isset( $row['rt_due_at'] ) ? (int) $row['rt_due_at'] : 0;
 			if ( $rt_due > 0 && $resolved_at > $rt_due ) {
 				$breach_updates = array( 'state' => 'breached', 'rt_breached_at' => $row['rt_breached_at'] ?: $resolved_at, 'last_evaluated_at' => $now );
-				BizCity_CRM_Repository::update_applied_sla_fields( (int) $row['id'], $breach_updates );
+				BizCity_CRM_Repository_Ext::update_applied_sla_fields( (int) $row['id'], $breach_updates );
 				BizCity_CRM_Event_Emitter::emit( 'crm_sla_breached', array( 'conversation_id' => $conv_id, 'sla_policy_id' => (int) $row['sla_policy_id'], 'applied_sla_id' => (int) $row['id'], 'kind' => 'rt', 'due_at' => $rt_due, 'breached_at' => $resolved_at, 'overdue_seconds' => max( 0, $resolved_at - $rt_due ) ) );
 				return array( 'breached' => 0, 'met' => false );
 			}
-			BizCity_CRM_Repository::update_applied_sla_fields( (int) $row['id'], array(
+			BizCity_CRM_Repository_Ext::update_applied_sla_fields( (int) $row['id'], array(
 				'state'             => 'met',
 				'met_at'            => $resolved_at,
 				'last_evaluated_at' => $now,
@@ -154,7 +154,7 @@ class BizCity_CRM_SLA_Evaluator {
 		if ( 'breached' === (string) ( $row['state'] ?? '' ) && 0 === $breach_count ) {
 			$updates['state'] = 'active';
 		}
-		BizCity_CRM_Repository::update_applied_sla_fields( (int) $row['id'], $updates );
+		BizCity_CRM_Repository_Ext::update_applied_sla_fields( (int) $row['id'], $updates );
 		return array( 'breached' => $breach_count );
 	}
 
