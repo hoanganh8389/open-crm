@@ -1,7 +1,8 @@
 <?php
 /**
- * Plugin Name:       Zalo Brain CRM
- * Plugin URI:        https://github.com/hoanganh8389/zalo-brain-crm
+ * Plugin Name:       Open CRM
+ * [2026-11-21 04:08 PM Johnny Chu - Chu Hoàng Anh] BRAND-OPEN-CRM — brand name Zalo Brain CRM -> Open CRM, repo open-crm (slug bizcity-twin-crm, prefix and owner unchanged).
+ * Plugin URI:        https://github.com/hoanganh8389/open-crm
  * Description:       Quản lý đội ngũ nhiều Zalo bot trên Zalo Brain — pipeline, giao việc, SLA, báo cáo, chiến dịch, CSKH tự động, B2B, hoá đơn. Kích hoạt và cài sổ dữ liệu được khi chưa có Zalo Brain; hộp thư và nhận tin cần Zalo Brain (bizcity-twin-ai).
  * Version:           1.0.0
  * Requires PHP:      7.4
@@ -91,7 +92,8 @@ add_action( 'admin_notices', static function () {
 	}
 	// [2026-11-20 08:23 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 S156-3.3 — standalone: say what works (the DB) and what does not (the screens), never an error box.
 	$installed = get_option( 'bizcity_crm_ext_db_ver' ) === BIZCITY_CRM_EXT_DB_VERSION;
-	echo '<div class="notice notice-info"><p><strong>Zalo Brain CRM</strong> — '
+	// [2026-11-21 04:08 PM Johnny Chu - Chu Hoàng Anh] BRAND-OPEN-CRM — brand name Zalo Brain CRM -> Open CRM, repo open-crm (slug bizcity-twin-crm, prefix and owner unchanged).
+	echo '<div class="notice notice-info"><p><strong>Open CRM</strong> — '
 		. ( $installed ? 'đã cài sổ dữ liệu (chạy một mình, không cần Zalo Brain). ' : 'chưa cài xong sổ dữ liệu; tải lại trang này để thử lại. ' )
 		. 'Hộp thư, đội và nhận tin Zalo cần plugin <strong>Zalo Brain</strong> (bizcity-twin-ai). Cách bật: cài và kích hoạt Zalo Brain — dữ liệu đã cài được giữ nguyên.</p></div>';
 } );
@@ -199,14 +201,16 @@ add_action( 'template_redirect', static function () {
 		// [2026-11-20 08:23 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 S156-3.3 — standalone (no Zalo Brain at all): the DB is installed, the inbox needs Zalo Brain. Not a server error ⇒ 200.
 		if ( ! defined( 'BIZCITY_TWIN_AI_VERSION' ) ) {
 			wp_die(
-				'Zalo Brain CRM đã cài sổ dữ liệu nhưng hộp thư cần plugin Zalo Brain (bizcity-twin-ai) để nhận và gửi tin. Cách bật: cài và kích hoạt Zalo Brain rồi mở lại trang này — dữ liệu đã cài được giữ nguyên.',
-				'Zalo Brain CRM',
+				// [2026-11-21 04:08 PM Johnny Chu - Chu Hoàng Anh] BRAND-OPEN-CRM — brand name Zalo Brain CRM -> Open CRM, repo open-crm (slug bizcity-twin-crm, prefix and owner unchanged).
+				'Open CRM đã cài sổ dữ liệu nhưng hộp thư cần plugin Zalo Brain (bizcity-twin-ai) để nhận và gửi tin. Cách bật: cài và kích hoạt Zalo Brain rồi mở lại trang này — dữ liệu đã cài được giữ nguyên.',
+				'Open CRM',
 				array( 'response' => 200 )
 			);
 		}
 		wp_die(
-			'Zalo Brain CRM đã bật nhưng chưa chạy được vì plugin Zalo Brain (bizcity-twin-ai) trên máy chủ chưa có phần lõi CRM. Cách sửa: cập nhật Zalo Brain lên bản mới nhất rồi tải lại trang.',
-			'Zalo Brain CRM',
+			// [2026-11-21 04:08 PM Johnny Chu - Chu Hoàng Anh] BRAND-OPEN-CRM — brand name Zalo Brain CRM -> Open CRM, repo open-crm (slug bizcity-twin-crm, prefix and owner unchanged).
+			'Open CRM đã bật nhưng chưa chạy được vì plugin Zalo Brain (bizcity-twin-ai) trên máy chủ chưa có phần lõi CRM. Cách sửa: cập nhật Zalo Brain lên bản mới nhất rồi tải lại trang.',
+			'Open CRM',
 			array( 'response' => 503 )
 		);
 	}
@@ -228,7 +232,7 @@ add_action( 'template_redirect', static function () {
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title><?php esc_html_e( 'Zalo Brain CRM', 'bizcity-twin-crm' ); ?></title>
+<title><?php esc_html_e( 'Open CRM', 'bizcity-twin-crm' ); ?></title>
 <?php
 // R-PERF-LOADER — print only the canonical CRM handles; no wp_head()/wp_footer().
 $crm_public_assets = array();
@@ -256,7 +260,7 @@ if ( '' !== $crm_script_handle ) {
 	wp_print_scripts( array( $crm_script_handle ) );
 } else {
 	// [2026-10-09 11:43 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.96 hotfix — no app script ⇒ say so instead of a blank page.
-	echo '<p style="font:15px/1.5 system-ui,sans-serif;padding:24px;color:#334155">Chưa tải được giao diện CRM (thiếu tệp <code>assets/dist/inbox-app.js</code> của plugin Zalo Brain CRM). Cách sửa: tải lại đủ thư mục <code>bizcity-twin-crm/assets/dist/</code> lên máy chủ rồi tải lại trang.</p>';
+	echo '<p style="font:15px/1.5 system-ui,sans-serif;padding:24px;color:#334155">Chưa tải được giao diện CRM (thiếu tệp <code>assets/dist/inbox-app.js</code> của plugin Open CRM). Cách sửa: tải lại đủ thư mục <code>bizcity-twin-crm/assets/dist/</code> lên máy chủ rồi tải lại trang.</p>';
 }
 ?>
 </body>

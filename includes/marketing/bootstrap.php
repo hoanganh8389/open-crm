@@ -1,6 +1,6 @@
 <?php
 /**
- * Zalo Brain CRM — marketing channels: Contact Form 7 lead capture + ZNS automation.
+ * Open CRM — marketing channels: Contact Form 7 lead capture + ZNS automation.
  *
  * [2026-10-20 09:50 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.126 G-C (ZBC-12, owner: "marketing, CRM… đưa sang bizcity-twin-crm; zalo-brain plugin ko có UI UX của CRM") — moved from
  * bizcity-twin-ai/core/channel-gateway/includes/{cf7,zns} (+ class-lead-source-tracker.php) with the same class names, REST namespace

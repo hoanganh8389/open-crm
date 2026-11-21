@@ -1,6 +1,6 @@
 <?php
 /**
- * BizCity_CRM_Business_Pack_Exporter — Zalo Brain CRM decoration of the `customers` projection pack.
+ * BizCity_CRM_Business_Pack_Exporter — Open CRM decoration of the `customers` projection pack.
  *
  * [2026-10-09 10:48 PM Johnny Chu - Chu Hoàng Anh] CORE-REDUCTION WP-20 W20-L4 (D-W20-1) — the plugin no longer registers any pack
  * kind. The 5 Woo kinds (sales, orders, stock, catalog, catalog_map) moved to core/mcp/verticals/woo (BizCity_Woo_Pack_Exporter)

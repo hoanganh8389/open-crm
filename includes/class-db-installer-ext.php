@@ -1,6 +1,6 @@
 <?php
 /**
- * Zalo Brain CRM — extension DB installer: the tables only this plugin uses.
+ * Open CRM — extension DB installer: the tables only this plugin uses.
  *
  * [2026-10-09 Johnny Chu - Chu Hoàng Anh] PHASE-0.96 S96-3.2 — split from the former class-db-installer.php. Core/crm
  * (BizCity_CRM_DB_Installer_V2) owns the spine tables and the single dbDelta pass; this class appends its CREATE

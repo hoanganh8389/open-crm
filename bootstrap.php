@@ -1,10 +1,10 @@
 <?php
 /**
- * Zalo Brain CRM — Bootstrap (extension plugin on the core/crm spine).
+ * Open CRM — Bootstrap (extension plugin on the core/crm spine).
  *
  * [2026-10-09 Johnny Chu - Chu Hoàng Anh] PHASE-0.96 S96-3.2 — everything the spine owns (ledger, scope, ingest,
  * outbound, magic links, spine REST, spine installer) now loads from bizcity-twin-ai/core/crm BEFORE this file runs
- * (plugins_loaded@6). This bootstrap only adds what Zalo Brain CRM sells on top: pipeline, tasks/handoff, SLA, reports,
+ * (plugins_loaded@6). This bootstrap only adds what Open CRM sells on top: pipeline, tasks/handoff, SLA, reports,
  * submissions, calendar adapter, CSKH tự động (Woo recap/CSAT/shipping/loyalty), campaigns/broadcast, B2B, invoices,
  * email automation, print-ads, service dispatch, AI usage, staff admin, the React SPA and the admin menu.
  * Dropped here on the owner's decision 2026-10-09: the PHP AI replier (cell answers now), the CRM rule engine (all
@@ -150,7 +150,7 @@ final class BizCity_CRM_Plugin {
 		BizCity_CRM_Task_Overdue_Notify::register();
 		BizCity_CRM_Attribution_Backfill::register();
 
-		// Admin menu "Zalo Brain CRM" + SPA enqueue.
+		// Admin menu "Open CRM" + SPA enqueue.
 		if ( is_admin() ) {
 			BizCity_CRM_Admin_Menu::instance();
 			// [2026-09-27 Claude Opus 5.5] CORE-REDUCTION WP-13 B-6 — dev-only page (D-35), absent in production.
@@ -174,7 +174,8 @@ final class BizCity_CRM_Plugin {
 			array(
 				'contract' => 'zalo-brain-extension@1',
 				'id'       => 'bizcity-twin-crm',
-				'name'     => 'Zalo Brain CRM',
+				// [2026-11-21 04:08 PM Johnny Chu - Chu Hoàng Anh] BRAND-OPEN-CRM — brand name Zalo Brain CRM -> Open CRM, repo open-crm (slug bizcity-twin-crm, prefix and owner unchanged).
+				'name'     => 'Open CRM',
 				'version'  => BIZCITY_CRM_VERSION,
 				'features' => self::FEATURES,
 			),

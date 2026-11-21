@@ -11,7 +11,7 @@
  *
  * [2026-06-27 Johnny Chu] PHASE-CG-BROADCAST — new installer.
  * [2026-10-11 10:19 AM Johnny Chu - Chu Hoàng Anh] CORE-REDUCTION WP-20 Z-7d — moved from bizcity-twin-ai
- * core/channel-gateway/includes/broadcast/ into Zalo Brain CRM (D-W20-1, Q-W16-4: the mass-send engine is a CRM tool, CRM
+ * core/channel-gateway/includes/broadcast/ into Open CRM (D-W20-1, Q-W16-4: the mass-send engine is a CRM tool, CRM
  * Broadcast already drove it through bizcity-channel/v1/broadcasts*). Table names, columns, SCHEMA_VERSION and the version
  * option bizcity_cg_broadcast_schema_version are unchanged, so an existing site neither re-creates nor loses rows. The DDL
  * now rides the extension installer: BizCity_CRM_DB_Installer_Ext::append_tables() appends table_sql() to the spine's

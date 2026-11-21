@@ -1,7 +1,7 @@
 {
   "contract": "zalo-brain-extension@1",
   "id": "bizcity-twin-crm",
-  "name": "Zalo Brain CRM",
+  "name": "Open CRM",
   "version": "1.0.0",
   "requires": {
     "zalo-brain": ">=1.4.0",
