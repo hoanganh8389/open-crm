@@ -1,0 +1,38 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "ghn",
+	"group": "ship",
+	"order": 1,
+	"name": "GHN",
+	"desc": "Tra cứu vận đơn Giao Hàng Nhanh ngay trong chat.",
+	"fields": [
+		{
+			"id": "token",
+			"label": "Token API",
+			"type": "secret",
+			"required": true,
+			"help": "GHN → Chủ cửa hàng → Xem token"
+		},
+		{
+			"id": "shop_id",
+			"label": "Shop ID",
+			"type": "text",
+			"required": false
+		}
+	],
+	"check": {
+		"method": "GET",
+		"url": "https://online-gateway.ghn.vn/shiip/public-api/master-data/province",
+		"headers": {
+			"Token": "{token}"
+		},
+		"ok_when": {
+			"path": "code",
+			"equals": 200
+		}
+	},
+	"webhook": false,
+	"capabilities": [
+		"shipment.lookup"
+	]
+}

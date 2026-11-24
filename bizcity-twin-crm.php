@@ -31,7 +31,8 @@ defined( 'ABSPATH' ) || exit;
  * ------------------------------------------------------------------ */
 if ( ! defined( 'BIZCITY_CRM_VERSION' ) )        { define( 'BIZCITY_CRM_VERSION', '1.0.0' ); }
 // [2026-11-20 08:06 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.156 D156-5 — 1.2.0: this plugin creates bizcity_crm_teams + bizcity_crm_team_members (moved from core).
-if ( ! defined( 'BIZCITY_CRM_EXT_DB_VERSION' ) ) { define( 'BIZCITY_CRM_EXT_DB_VERSION', '1.2.0' ); } // [2026-10-28 05:58 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L1 — 1.1.0: migrate_phase_146 (announce columns on broadcasts + recipients)
+// [2026-11-24 01:20 AM Johnny Chu - Chu Hoàng Anh] OC-010.3 — 1.3.0: migrate_oc_010 (crm_tasks.project + crm_tasks.source, ADD-only).
+if ( ! defined( 'BIZCITY_CRM_EXT_DB_VERSION' ) ) { define( 'BIZCITY_CRM_EXT_DB_VERSION', '1.4.0' ); } // [2026-11-24 Johnny Chu - Chu Hoàng Anh] OC-011.3 — 1.4.0: migrate_oc_011 (bảng bizcity_ocrm_events). // [2026-10-28 05:58 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L1 — 1.1.0: migrate_phase_146 (announce columns on broadcasts + recipients)
 if ( ! defined( 'BIZCITY_CRM_FILE' ) )           { define( 'BIZCITY_CRM_FILE', __FILE__ ); }
 if ( ! defined( 'BIZCITY_CRM_DIR' ) )            { define( 'BIZCITY_CRM_DIR', __DIR__ ); }
 if ( ! defined( 'BIZCITY_CRM_URL' ) )            { define( 'BIZCITY_CRM_URL', plugins_url( '', __FILE__ ) ); }
@@ -160,7 +161,8 @@ register_deactivation_hook( __FILE__, static function () {
 } );
 
 /* ------------------------------------------------------------------
- * Public slug `/crm/` — direct CRM SPA mount (one TwinShell iframe, no nested wp-admin).
+ * Public slug `/crm/` — direct CRM SPA mount (full page, no nested wp-admin).
+ * [2026-11-23 11:59 PM Johnny Chu - Chu Hoàng Anh] OC-003.3 — Open CRM is its own page; no TwinShell iframe.
  * ------------------------------------------------------------------ */
 function bizcity_crm_add_rewrites(): void {
 	add_rewrite_rule( '^crm/?$', 'index.php?bizcity_agent_page=crm', 'top' );
@@ -219,7 +221,7 @@ add_action( 'template_redirect', static function () {
 		exit;
 	}
 	add_filter( 'show_admin_bar', '__return_false', 100 );
-	// [2026-09-19 Johnny Chu] PHASE-0.60 C2/C5 — public /crm/ uses the same action gate as wp-admin and TwinShell.
+	// [2026-09-19 Johnny Chu] PHASE-0.60 C2/C5 — public /crm/ uses the same action gate as wp-admin.
 	if ( class_exists( 'BizCity_CRM_Authority' ) && ! BizCity_CRM_Authority::can( 'crm.inbox.open', array(), BizCity_CRM_Actor::current( 'be' ) )['ok'] ) {
 		wp_die( 'Tài khoản này chưa được cấp quyền sử dụng CRM Inbox. Hãy liên hệ quản lý để được cấp quyền.', 'CRM', array( 'response' => 403 ) );
 	}

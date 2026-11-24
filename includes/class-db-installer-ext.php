@@ -278,6 +278,8 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 			related_entity_type VARCHAR(32) NULL,
 			related_entity_id BIGINT UNSIGNED NULL,
 			notes LONGTEXT NULL,
+			project VARCHAR(120) NULL,
+			source VARCHAR(32) NULL,
 			completed TINYINT(1) NOT NULL DEFAULT 0,
 			completed_at DATETIME NULL,
 			created_by BIGINT UNSIGNED NULL,
@@ -287,7 +289,8 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 			PRIMARY KEY  (id),
 			KEY idx_assignee_status (assignee_id, status),
 			KEY idx_due_date (due_date),
-			KEY idx_related (related_entity_type, related_entity_id)
+			KEY idx_related (related_entity_type, related_entity_id),
+			KEY idx_project (project)
 		) {$charset};";
 
 		$sql[] = "CREATE TABLE `{$crm_docs}` (
@@ -835,7 +838,48 @@ class BizCity_CRM_DB_Installer_Ext extends BizCity_CRM_DB_Installer_V2 {
 		self::migrate_phase_063c();
 		self::migrate_phase_071();
 		self::migrate_phase_146();
+		self::migrate_oc_010();
+		self::migrate_oc_011();
 		self::invalidate_tables_cache();
+	}
+
+	/**
+	 * [2026-11-24 01:20 AM Johnny Chu - Chu Hoàng Anh] OC-010.3 (ext db 1.3.0) — chủ: "Thêm hai cột vào lõi". crm_tasks thêm
+	 * project (tên dự án, chữ tự do ≤120, có chỉ mục để lọc) và source (ai tạo việc: manual | cell | automation | pipeline | care |
+	 * chat_session; NULL = việc cũ, không rõ nguồn). ADD-only, idempotent; dòng cũ giữ nguyên, không đoán ngược nguồn.
+	 */
+	public static function migrate_oc_010(): void {
+		global $wpdb;
+		$t = self::tbl_crm_tasks();
+		if ( ! self::table_exists( $t ) ) {
+			return;
+		}
+		if ( ! self::column_exists( $t, 'project' ) ) {
+			$wpdb->query( "ALTER TABLE `{$t}` ADD COLUMN project VARCHAR(120) NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+		}
+		if ( ! self::column_exists( $t, 'source' ) ) {
+			$wpdb->query( "ALTER TABLE `{$t}` ADD COLUMN source VARCHAR(32) NULL" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+		}
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+		if ( ! $wpdb->get_var( "SHOW INDEX FROM `{$t}` WHERE Key_name = 'idx_project'" ) ) {
+			$wpdb->query( "ALTER TABLE `{$t}` ADD INDEX idx_project (project)" ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+		}
+	}
+
+	/**
+	 * [2026-11-24 Johnny Chu - Chu Hoàng Anh] OC-011.3 (ext db 1.4.0) — bảng sự việc bizcity_ocrm_events (20-DATA-LEDGER §2; chủ: chỉ tạo bảng này,
+	 * chưa làm các bảng sổ khác). DDL ở BizCity_OCRM_Events::ddl(); dbDelta ⇒ có rồi thì thôi. Không DROP / MODIFY.
+	 */
+	public static function migrate_oc_011(): void {
+		if ( ! class_exists( 'BizCity_OCRM_Events', false ) ) {
+			$f = dirname( __FILE__ ) . '/kernel/class-ocrm-events.php';
+			if ( ! is_readable( $f ) ) {
+				return;
+			}
+			require_once $f;
+		}
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( BizCity_OCRM_Events::ddl() );
 	}
 
 	/**

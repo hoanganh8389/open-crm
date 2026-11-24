@@ -1,0 +1,27 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "viettelpost",
+	"group": "ship",
+	"order": 3,
+	"name": "Viettel Post",
+	"desc": "Tra cứu vận đơn Viettel Post.",
+	"fields": [
+		{
+			"id": "username",
+			"label": "Tài khoản",
+			"type": "text",
+			"required": true
+		},
+		{
+			"id": "password",
+			"label": "Mật khẩu",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": false,
+	"capabilities": [
+		"shipment.lookup"
+	]
+}

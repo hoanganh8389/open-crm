@@ -1,0 +1,35 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "sepay",
+	"group": "pay",
+	"order": 3,
+	"name": "SePay",
+	"desc": "Nhận webhook giao dịch từ SePay. Kích hoạt kịch bản tự động khi nhận tiền.",
+	"fields": [
+		{
+			"id": "api_token",
+			"label": "API Token",
+			"type": "secret",
+			"required": true,
+			"help": "SePay → Cấu hình công ty → API Access"
+		},
+		{
+			"id": "webhook_key",
+			"label": "Khoá bảo mật webhook",
+			"type": "secret",
+			"required": false,
+			"help": "Tự đặt một chuỗi dài, dán giống hệt vào SePay → Webhooks → Kiểu chứng thực API Key."
+		}
+	],
+	"check": {
+		"method": "GET",
+		"url": "https://my.sepay.vn/userapi/bankaccounts/list",
+		"headers": {
+			"Authorization": "Bearer {api_token}"
+		}
+	},
+	"webhook": true,
+	"capabilities": [
+		"payment.in"
+	]
+}

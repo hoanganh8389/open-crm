@@ -1,0 +1,39 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "casso",
+	"group": "pay",
+	"order": 2,
+	"name": "Casso",
+	"desc": "Nhận webhook khi có giao dịch chuyển khoản VietQR. Tự động xác nhận đơn.",
+	"fields": [
+		{
+			"id": "api_key",
+			"label": "API Key",
+			"type": "secret",
+			"required": true,
+			"help": "Casso → Tích hợp → API Key"
+		},
+		{
+			"id": "secure_token",
+			"label": "Khoá bảo mật webhook",
+			"type": "secret",
+			"required": false,
+			"help": "Casso → Webhook → Secure token. Dùng để kiểm webhook vào là của Casso."
+		}
+	],
+	"check": {
+		"method": "GET",
+		"url": "https://oauth.casso.vn/v2/userInfo",
+		"headers": {
+			"Authorization": "Apikey {api_key}"
+		},
+		"ok_when": {
+			"path": "error",
+			"equals": 0
+		}
+	},
+	"webhook": true,
+	"capabilities": [
+		"payment.in"
+	]
+}

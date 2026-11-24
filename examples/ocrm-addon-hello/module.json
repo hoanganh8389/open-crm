@@ -1,0 +1,11 @@
+{
+	"schema": "ocrm-addon@1",
+	"key": "hello",
+	"name": "Xin chào Open CRM",
+	"version": "0.1.0",
+	"author": "Bizcity",
+	"description": "Add-on mẫu: chép thư mục này vào wp-content/plugins/, đổi key và name, bật plugin là thấy trên màn Ứng dụng.",
+	"kind": "server",
+	"slots": [ "composer_button" ],
+	"permissions": [ "contacts.read" ]
+}

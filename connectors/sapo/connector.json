@@ -1,0 +1,35 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "sapo",
+	"group": "pos",
+	"order": 4,
+	"name": "Sapo",
+	"desc": "Quản lý bán hàng đa kênh Sapo. Tra cứu đơn, khách hàng theo SĐT.",
+	"fields": [
+		{
+			"id": "store",
+			"label": "Tên cửa hàng",
+			"type": "text",
+			"required": true,
+			"placeholder": "cuahangabc (phần trước .mysapo.net)"
+		},
+		{
+			"id": "api_key",
+			"label": "API Key",
+			"type": "text",
+			"required": true
+		},
+		{
+			"id": "api_secret",
+			"label": "Mật khẩu API (API Secret)",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": true,
+	"capabilities": [
+		"order.lookup",
+		"customer.lookup"
+	]
+}

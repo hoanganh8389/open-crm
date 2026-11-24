@@ -171,6 +171,17 @@ final class BizCity_CRM_Staff_REST {
 			'callback'            => array( __CLASS__, 'start_phone_qr' ),
 			'permission_callback' => array( __CLASS__, 'can_use_crm' ),
 		) );
+		// [2026-11-24 Johnny Chu - Chu Hoàng Anh] PHASE-017 017.11 — nick Facebook cá nhân: đăng nhập email + mật khẩu (Q017-2 = B), cùng luật quyền với QR.
+		register_rest_route( $ns, '/crm-phones/(?P<inbox_id>\d+)/fb-login', array(
+			'methods'             => WP_REST_Server::CREATABLE,
+			'callback'            => array( __CLASS__, 'phone_fb_login' ),
+			'permission_callback' => array( __CLASS__, 'can_use_crm' ),
+		) );
+		register_rest_route( $ns, '/crm-phones/(?P<inbox_id>\d+)/fb-login-status', array(
+			'methods'             => WP_REST_Server::READABLE,
+			'callback'            => array( __CLASS__, 'phone_fb_login_status' ),
+			'permission_callback' => array( __CLASS__, 'can_use_crm' ),
+		) );
 		register_rest_route( $ns, '/crm-phones/(?P<inbox_id>\d+)/qr-reset', array(
 			'methods'             => WP_REST_Server::CREATABLE,
 			'callback'            => array( __CLASS__, 'reset_phone_qr' ),
@@ -1056,6 +1067,13 @@ final class BizCity_CRM_Staff_REST {
 		if ( ! class_exists( 'BizCity_Zalo_Bridge_REST' ) ) {
 			return new WP_REST_Response( array( 'ok' => false, 'code' => 'module_not_loaded', 'message' => 'Module Zalo Personal chưa sẵn sàng.', 'hint' => 'Bật Zalo Personal rồi thử lại.', 'help_code' => 'module_not_loaded' ), 503 );
 		}
+		// [2026-11-24 Johnny Chu - Chu Hoàng Anh] PHASE-017 017.11 — nick Facebook cá nhân: Zalo Brain tạo account `platform: facebook_personal` ở Cell (017.10).
+		if ( 'facebook_personal' === sanitize_key( (string) ( $body['platform'] ?? '' ) ) ) {
+			if ( ! method_exists( 'BizCity_Zalo_Bridge_REST', 'create_facebook_account_for_owner' ) ) {
+				return self::facebook_not_ready();
+			}
+			return BizCity_Zalo_Bridge_REST::create_facebook_account_for_owner( $req, $owner_user_id, true, $owner_user_id !== $actor_id, $actor_id );
+		}
 		// `true` = personal_only (this route never provisions a Zalo OA account, R-ZONE/R-TWEB-14).
 		return BizCity_Zalo_Bridge_REST::create_account_for_owner( $req, $owner_user_id, true, $owner_user_id !== $actor_id, $actor_id );
 	}
@@ -1145,6 +1163,36 @@ final class BizCity_CRM_Staff_REST {
 		// owner row, skip the self-only check" contract those `_for_owner`
 		// methods document.
 		return BizCity_Zalo_Bridge_REST::start_qr_for_owner( $resolved['account'], $resolved['owner_user_id'], true );
+	}
+
+	/**
+	 * [2026-11-24 Johnny Chu - Chu Hoàng Anh] PHASE-017 017.11 — Zalo Brain trên website chưa có đường Facebook cá nhân (017.10) ⇒ nói thật, không giả "đã kết nối".
+	 */
+	private static function facebook_not_ready(): WP_REST_Response {
+		return new WP_REST_Response( array( 'ok' => false, 'code' => 'facebook_not_ready', 'message' => 'Zalo Brain trên website chưa hỗ trợ Facebook cá nhân.', 'hint' => 'Cập nhật Zalo Brain (bizcity-twin-ai) lên bản có Facebook cá nhân rồi thử lại.', 'help_code' => 'facebook_not_ready' ), 503 );
+	}
+
+	/**
+	 * POST /crm-phones/{id}/fb-login — {action:start, identifier, password} | {action:submit, input} | {action:wait} | {action:cancel}.
+	 * Mật khẩu / mã chỉ chuyển tiếp trong request này tới Zalo Brain → Hub → Cell; KHÔNG ghi log, option, meta hay audit ở đây.
+	 */
+	public static function phone_fb_login( WP_REST_Request $req ) {
+		$resolved = self::resolve_authorized_phone( get_current_user_id(), (int) $req['inbox_id'], 'phone.qr' );
+		if ( $resolved instanceof WP_REST_Response ) { return $resolved; }
+		if ( ! class_exists( 'BizCity_Zalo_Bridge_REST' ) || ! method_exists( 'BizCity_Zalo_Bridge_REST', 'fb_login_for_owner' ) ) {
+			return self::facebook_not_ready();
+		}
+		$body = $req->get_json_params();
+		return BizCity_Zalo_Bridge_REST::fb_login_for_owner( $resolved['account'], $resolved['owner_user_id'], is_array( $body ) ? $body : array(), true );
+	}
+
+	public static function phone_fb_login_status( WP_REST_Request $req ) {
+		$resolved = self::resolve_authorized_phone( get_current_user_id(), (int) $req['inbox_id'], 'phone.qr' );
+		if ( $resolved instanceof WP_REST_Response ) { return $resolved; }
+		if ( ! class_exists( 'BizCity_Zalo_Bridge_REST' ) || ! method_exists( 'BizCity_Zalo_Bridge_REST', 'fb_login_status_for_owner' ) ) {
+			return self::facebook_not_ready();
+		}
+		return BizCity_Zalo_Bridge_REST::fb_login_status_for_owner( $resolved['account'], $resolved['owner_user_id'], true );
 	}
 
 	public static function reset_phone_qr( WP_REST_Request $req ) {

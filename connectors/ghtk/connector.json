@@ -1,0 +1,21 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "ghtk",
+	"group": "ship",
+	"order": 2,
+	"name": "GHTK",
+	"desc": "Tra cứu vận đơn Giao Hàng Tiết Kiệm.",
+	"fields": [
+		{
+			"id": "token",
+			"label": "Token API",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": false,
+	"capabilities": [
+		"shipment.lookup"
+	]
+}

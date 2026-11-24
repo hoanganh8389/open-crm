@@ -6200,7 +6200,13 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST_Ext {
 			$today = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$msg_tbl}` m WHERE DATE(m.created_at) = CURDATE(){$where_inbox}" );
 			$days_diff = max( 1, (int) ( ( strtotime( $to ) - strtotime( $from ) ) / DAY_IN_SECONDS ) + 1 );
 			$series = $wpdb->get_results( "SELECT DATE(m.created_at) AS day, COUNT(*) AS count FROM `{$msg_tbl}` m WHERE DATE(m.created_at) BETWEEN '{$from}' AND '{$to}'{$where_inbox} GROUP BY day ORDER BY day ASC", ARRAY_A );
+			// [2026-11-23 10:20 PM Johnny Chu - Chu Hoàng Anh] PHASE-008 OC-UI — tách gửi / nhận theo ngày cho biểu đồ 2 đường (ảnh 8). Thêm trường, không đổi trường cũ.
+			$split = $wpdb->get_results( "SELECT DATE(m.created_at) AS day, SUM(m.message_type = 'outgoing') AS sent, SUM(m.message_type = 'incoming') AS received FROM `{$msg_tbl}` m WHERE DATE(m.created_at) BETWEEN '{$from}' AND '{$to}'{$where_inbox} GROUP BY day ORDER BY day ASC", ARRAY_A );
+			$today_split = $wpdb->get_row( "SELECT SUM(m.message_type = 'outgoing') AS sent, SUM(m.message_type = 'incoming') AS received FROM `{$msg_tbl}` m WHERE DATE(m.created_at) = CURDATE(){$where_inbox}", ARRAY_A );
 			return array(
+				'series_split' => $split ?: array(),
+				'today_sent'     => (int) ( $today_split['sent'] ?? 0 ),
+				'today_received' => (int) ( $today_split['received'] ?? 0 ),
 				'total'        => $total,
 				'today'        => $today,
 				'avg_per_day'  => round( $total / $days_diff, 1 ),
@@ -6837,6 +6843,11 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST_Ext {
 			}
 			$q = (string) ( $req->get_param( 'q' ) ?: '' );
 			if ( $q !== '' ) { $where[] = $wpdb->prepare( 'title LIKE %s', '%' . $wpdb->esc_like( $q ) . '%' ); }
+			// [2026-11-24 01:20 AM Johnny Chu - Chu Hoàng Anh] OC-010.3 — lọc dự án: ?project=Tên · ?project=__none__ = việc chưa gắn dự án.
+			$project = trim( (string) ( $req->get_param( 'project' ) ?: '' ) );
+			if ( $project !== '' && self::task_has_oc010_cols() ) {
+				$where[] = '__none__' === $project ? "( project IS NULL OR project = '' )" : $wpdb->prepare( 'project = %s', $project );
+			}
 			// [2026-09-17 Johnny Chu - Chu Hoàng Anh] PHASE-0.48B-8.11 — honor related-entity filters; callers asking for one contact must not get the tenant-wide list.
 			$related_type = sanitize_key( (string) ( $req->get_param( 'related_entity_type' ) ?: '' ) );
 			$related_id   = (int) ( $req->get_param( 'related_entity_id' ) ?: 0 );
@@ -6886,7 +6897,8 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST_Ext {
 				'created_by'          => get_current_user_id() ?: null,
 				'created_at'          => $now,
 				'updated_at'          => $now,
-			) );
+			// [2026-11-24 01:20 AM Johnny Chu - Chu Hoàng Anh] OC-010.3 — người bấm trên giao diện = manual; trợ lý (cell) gửi source: 'cell'.
+			) + self::task_oc010_fields( (string) ( $body['source'] ?? 'manual' ), (string) ( $body['project'] ?? '' ) ) );
 			$id  = (int) $wpdb->insert_id;
 			if ( ! $id ) { return new WP_Error( 'insert_failed', 'Could not create task', array( 'status' => 500 ) ); }
 			$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `" . BizCity_CRM_DB_Installer_V2::tbl_crm_tasks() . "` WHERE id=%d", $id ), ARRAY_A );
@@ -6910,6 +6922,12 @@ class BizCity_CRM_REST_Controller extends BizCity_CRM_Spine_REST_Ext {
 			$fields = array( 'updated_at' => current_time( 'mysql' ) );
 			foreach ( array( 'title', 'status', 'priority', 'due_date', 'notes' ) as $f ) {
 				if ( isset( $body[ $f ] ) ) { $fields[ $f ] = (string) $body[ $f ]; }
+			}
+			// [2026-11-24 12:40 AM Johnny Chu - Chu Hoàng Anh] PHASE-010 OC-010.2 — xoá hạn chót: '' vào cột DATE lỗi ở MySQL strict ⇒ NULL (giống POST).
+			if ( isset( $fields['due_date'] ) && '' === trim( $fields['due_date'] ) ) { $fields['due_date'] = null; }
+			// [2026-11-24 01:20 AM Johnny Chu - Chu Hoàng Anh] OC-010.3 — đổi / bỏ dự án. Nguồn tạo việc không sửa được (là lịch sử).
+			if ( array_key_exists( 'project', $body ) && self::task_has_oc010_cols() ) {
+				$fields['project'] = self::task_oc010_fields( 'manual', (string) $body['project'] )['project'];
 			}
 			if ( isset( $body['assignee_id'] ) ) { $fields['assignee_id'] = $body['assignee_id'] ? (int) $body['assignee_id'] : null; }
 			if ( isset( $body['completed'] ) ) {

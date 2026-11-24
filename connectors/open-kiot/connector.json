@@ -1,0 +1,31 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "open-kiot",
+	"group": "pos",
+	"order": 1,
+	"name": "Open Kiot",
+	"bizcity": true,
+	"desc": "Sổ bán lẻ Bizcity. Tra đơn, tạo đơn từ chat; sự việc kiot.order.* kéo nhắc chăm sóc.",
+	"fields": [
+		{
+			"id": "base_url",
+			"label": "Địa chỉ Open Kiot",
+			"type": "url",
+			"required": true,
+			"placeholder": "https://kiot.cuahang.vn"
+		},
+		{
+			"id": "token",
+			"label": "Mã truy cập",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": true,
+	"capabilities": [
+		"order.lookup",
+		"order.create",
+		"event.in"
+	]
+}

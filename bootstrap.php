@@ -189,6 +189,22 @@ final class BizCity_CRM_Plugin {
 		// Schema + data (extension halves of the spine classes).
 		require_once $inc . 'class-db-installer-ext.php';
 		require_once $inc . 'class-repository-ext.php';
+		// [2026-11-23 09:05 PM Johnny Chu - Chu Hoàng Anh] PHASE-005 OC-UI — REST chỉ đọc cho giao diện mới (bảng Danh bạ). Bọc is_readable (N7: file mới chưa upload không được làm sập site).
+		if ( is_readable( $inc . 'rest/class-oc-rest.php' ) ) {
+			require_once $inc . 'rest/class-oc-rest.php';
+		}
+		// [2026-11-24 Johnny Chu - Chu Hoàng Anh] PHASE-011 OC-011.1 — danh sách kết nối (connectors/*/connector.json) + kho khoá mã hoá. Bọc is_readable (N7).
+		// [2026-11-24 Johnny Chu - Chu Hoàng Anh] OC-013.1 — danh sách ứng dụng (plugin có module.json schema ocrm-addon@1), chỉ đọc.
+		if ( is_readable( $inc . 'rest/class-oc-apps-rest.php' ) ) {
+			require_once $inc . 'rest/class-oc-apps-rest.php';
+		}
+		// [2026-11-24 Johnny Chu - Chu Hoàng Anh] OC-011.3 — Event Gateway tối thiểu (bảng bizcity_ocrm_events), nạp trước connectors vì webhook ghi qua nó.
+		if ( is_readable( $inc . 'kernel/class-ocrm-events.php' ) ) {
+			require_once $inc . 'kernel/class-ocrm-events.php';
+		}
+		if ( is_readable( $inc . 'connectors/class-oc-connectors.php' ) ) {
+			require_once $inc . 'connectors/class-oc-connectors.php';
+		}
 
 		// [2026-10-17 10:59 AM Johnny Chu - Chu Hoàng Anh] PHASE-0.116 S116-X4 (C1, doc 97) — CRM files moved out of bizcity-twin-ai/core/crm (no core caller). Same load + registration as core did;
 		// the Channel Gateway keeps working without this plugin (doc 97 §4). Guarded: a partial deploy must not white-screen.
