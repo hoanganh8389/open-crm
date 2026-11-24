@@ -1,0 +1,20 @@
+{
+  "schema": "bizcity_app@1",
+  "id": "open-crm",
+  "name": "Open CRM (bản WordPress)",
+  "repo": "hoanganh8389/open-crm",
+  "public": true,
+  "runtime": "wordpress-php",
+  "license": "GPL-2.0-or-later",
+  "paid": false,
+  "axes": {
+    "owns": ["pipeline"],
+    "uses": ["tenant", "user", "contact", "partner", "document"]
+  },
+  "sync": {
+    "push_via": "open-ketoan"
+  },
+  "contracts": ["bizcity_spine@1", "bizcity_mcp@1"],
+  "docs": { "canon": "CANON-SPINE.md" },
+  "notes": "Cánh tay làm việc nhóm của Open Brain: pipeline, giao việc, SLA, báo cáo trên sổ hội thoại của Zalo Brain (core/crm). Song song với open-cake (bản web): không chung DB, chung tên, luật, hợp đồng; chủ trục contact_id là open-cake — bản WordPress mang danh tính có bằng chứng và tra về cake khi hai bản cùng chạy. Giấy phép 0đ (chủ chốt 2026-11-24); README cũ ghi Premium cần sửa."
+}
