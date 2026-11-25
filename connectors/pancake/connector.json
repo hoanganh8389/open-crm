@@ -1,0 +1,29 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "pancake",
+	"group": "pos",
+	"order": 6,
+	"name": "Pancake POS",
+	"desc": "Pancake POS/OMS. Tra cứu khách hàng, đơn hàng, sản phẩm và tạo đơn ngay trong chat.",
+	"fields": [
+		{
+			"id": "shop_id",
+			"label": "Shop ID",
+			"type": "text",
+			"required": true
+		},
+		{
+			"id": "api_key",
+			"label": "API Key",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": true,
+	"capabilities": [
+		"order.lookup",
+		"customer.lookup",
+		"order.create"
+	]
+}

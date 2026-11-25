@@ -1073,7 +1073,7 @@ class BizCity_CRM_Spine_REST_Ext extends BizCity_CRM_Spine_REST {
 					'created_by'          => $user_id ?: null,
 					'created_at'          => $now,
 					'updated_at'          => $now,
-				) );
+				) + self::task_oc010_fields( 'care' ) ); // OC-010.3 — nhắc việc từ chăm sóc khách
 				$task_id = (int) $wpdb->insert_id;
 				if ( ! $task_id ) { return self::care_error( 'task_insert_failed', 'Không tạo được nhắc việc.', 500 ); }
 				$result['id'] = $task_id;
@@ -1535,7 +1535,46 @@ class BizCity_CRM_Spine_REST_Ext extends BizCity_CRM_Spine_REST {
 			'completed_at'        => $r['completed_at'],
 			'created_at'          => $r['created_at'],
 			'updated_at'          => $r['updated_at'],
+			// [2026-11-24 12:40 AM Johnny Chu - Chu Hoàng Anh] PHASE-010 OC-010.2 — thêm tên người làm / người tạo (chỉ thêm khoá, không đổi khoá cũ):
+			// Kanban, Lịch, Nhân sự của giao diện mới đọc assignee_name; trước đây không có ⇒ thẻ việc không hiện người làm.
+			'assignee_name'       => self::task_user_name( $r['assignee_id'] ?? 0 ),
+			'created_by'          => ! empty( $r['created_by'] ) ? (int) $r['created_by'] : null,
+			'created_by_name'     => self::task_user_name( $r['created_by'] ?? 0 ),
+			// [2026-11-24 01:20 AM Johnny Chu - Chu Hoàng Anh] OC-010.3 — cột mới (ext db 1.3.0); site chưa chạy migration ⇒ null.
+			'project'             => isset( $r['project'] ) && '' !== $r['project'] ? (string) $r['project'] : null,
+			'source'              => isset( $r['source'] ) && '' !== $r['source'] ? (string) $r['source'] : null,
 		);
+	}
+
+	/** OC-010.3 — nguồn tạo việc hợp lệ. */
+	const TASK_SOURCES = array( 'manual', 'cell', 'automation', 'pipeline', 'care', 'chat_session' );
+
+	/** OC-010.3 — cột project/source đã có chưa (migration ext 1.3.0 có thể chưa chạy do khoá 15 phút). Chỉ ghi cột khi đã có. */
+	public static function task_has_oc010_cols(): bool {
+		static $has = null;
+		if ( null === $has ) {
+			global $wpdb;
+			$t   = BizCity_CRM_DB_Installer_V2::tbl_crm_tasks();
+			$has = (bool) $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$t}` LIKE %s", 'source' ) ) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name from $wpdb->prefix.
+				&& (bool) $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$t}` LIKE %s", 'project' ) ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		}
+		return $has;
+	}
+
+	/** OC-010.3 — thêm project/source vào mảng insert khi cột đã có. */
+	public static function task_oc010_fields( string $source, string $project = '' ): array {
+		if ( ! self::task_has_oc010_cols() ) {
+			return array();
+		}
+		$source  = in_array( $source, self::TASK_SOURCES, true ) ? $source : 'manual';
+		$project = trim( wp_strip_all_tags( $project ) );
+		return array( 'source' => $source, 'project' => '' !== $project ? mb_substr( $project, 0, 120 ) : null );
+	}
+
+	/** Tên hiển thị WordPress; get_userdata có cache đối tượng nên 200 việc của 5 người chỉ đọc 5 lần. */
+	protected static function task_user_name( $uid ): string {
+		$u = (int) $uid > 0 ? get_userdata( (int) $uid ) : false;
+		return $u ? (string) $u->display_name : '';
 	}
 
 	public static function get_crm_documents( WP_REST_Request $req ) {

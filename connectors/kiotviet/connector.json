@@ -1,0 +1,36 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "kiotviet",
+	"group": "pos",
+	"order": 2,
+	"name": "KiotViet",
+	"desc": "Tra cứu đơn hàng, khách hàng ngay trong chat. Tạo đơn hàng từ kịch bản.",
+	"fields": [
+		{
+			"id": "retailer",
+			"label": "Tên gian hàng",
+			"type": "text",
+			"required": true,
+			"placeholder": "cuahangabc"
+		},
+		{
+			"id": "client_id",
+			"label": "Client ID",
+			"type": "text",
+			"required": true
+		},
+		{
+			"id": "client_secret",
+			"label": "Mã bí mật (Client Secret)",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": true,
+	"capabilities": [
+		"order.lookup",
+		"customer.lookup",
+		"order.create"
+	]
+}

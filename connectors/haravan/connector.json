@@ -1,0 +1,22 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "haravan",
+	"group": "pos",
+	"order": 3,
+	"name": "Haravan",
+	"desc": "Nền tảng TMĐT Việt Nam. Tra cứu đơn hàng, khách hàng Haravan trong chat.",
+	"fields": [
+		{
+			"id": "access_token",
+			"label": "Mã truy cập (Private App)",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": true,
+	"capabilities": [
+		"order.lookup",
+		"customer.lookup"
+	]
+}

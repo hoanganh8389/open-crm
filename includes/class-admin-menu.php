@@ -188,7 +188,9 @@ class BizCity_CRM_Admin_Menu {
 			'bzdocRestUrl'     => esc_url_raw( rest_url( 'bzdoc/v1/' ) ),
 			// [2026-10-17 10:10 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.121 B4-1 — "Sổ tài liệu" reads the journal (core/kg-hub REST).
 			'knowledgeRestUrl' => esc_url_raw( rest_url( 'bizcity-knowledge/v2/' ) ),
-			'twinUrl'          => esc_url_raw( home_url( '/twin/' ) ),
+			// [2026-11-23 11:59 PM Johnny Chu - Chu Hoàng Anh] OC-003.3 — /twin/ chỉ có khi cài Zalo Brain; chỉ giao diện cũ (Sổ tài liệu) đọc khoá này,
+			// giao diện mới (frontend/src/oc/) 0 tham chiếu. Không Zalo Brain ⇒ '' ⇒ không phát đường dẫn chết.
+			'twinUrl'          => defined( 'BIZCITY_TWIN_AI_VERSION' ) ? esc_url_raw( home_url( '/twin/' ) ) : '',
 			'restNonce'        => wp_create_nonce( 'wp_rest' ),
 			'pollMs'           => 3000,
 			// [2026-09-18 Johnny Chu - Chu Hoàng Anh] PHASE-0.51 A2 — static per-site change marker (nginx-served
@@ -233,6 +235,39 @@ class BizCity_CRM_Admin_Menu {
 			'permissions'      => $crm_boot_permissions,
 			// [2026-10-28 07:12 PM Johnny Chu - Chu Hoàng Anh] PHASE-0.146 S146-L3 (D146-17) — the 📣 button + "Lịch thông báo" tab; REST re-checks every call.
 			'canAnnounce'      => class_exists( 'BizCity_CRM_Announce_Store' ) && BizCity_CRM_Announce_Store::can_announce( get_current_user_id() ),
+			// [2026-11-23 09:05 PM Johnny Chu - Chu Hoàng Anh] PHASE-003 OC-UI — giao diện Open CRM mới (Deplao-like, frontend/src/oc/).
+			// ui: 'oc' (mặc định) | 'classic' (giao diện cũ; option bizcity_crm_ui hoặc ?ui=classic). caps: plugin nào có mặt ⇒ thẻ "Cần cài …" (D001-4).
+			'oc'               => array(
+				'ui'   => ( 'classic' === get_option( 'bizcity_crm_ui', 'oc' ) ) ? 'classic' : 'oc',
+				'host' => defined( 'BIZCITY_TWIN_AI_VERSION' ) ? 'with-zalo-brain' : 'standalone',
+				'caps' => array(
+					'zaloBrain'  => defined( 'BIZCITY_TWIN_AI_VERSION' ),
+					'automation' => defined( 'BIZCITY_AUTOMATION_VERSION' ) || class_exists( 'BizCity_Automation_Plugin', false ),
+					'aiSuggest'  => (bool) apply_filters( 'bizcity_ocrm_ai_suggest_enabled', false ),
+				),
+				'urls' => array(
+					'gateway'    => esc_url_raw( admin_url( 'admin.php?page=bizchat-gateway-spa' ) ),
+					'automation' => esc_url_raw( home_url( '/flow/' ) ),
+					'plugins'    => esc_url_raw( admin_url( 'plugin-install.php' ) ),
+					'crm'        => esc_url_raw( home_url( '/crm/' ) ),
+				),
+				'version' => defined( 'BIZCITY_CRM_VERSION' ) ? BIZCITY_CRM_VERSION : '',
+				'userName' => wp_get_current_user()->display_name,
+				// [2026-11-24 12:10 AM Johnny Chu - Chu Hoàng Anh] PHASE-009 OC-009.3 — mục người này được dùng; null = mọi mục (mặc định cho phép).
+				'modules'  => class_exists( 'BizCity_OCRM_REST', false ) ? BizCity_OCRM_REST::user_modules( get_current_user_id() ) : null,
+				'canManageStaff' => class_exists( 'BizCity_OCRM_REST', false ) ? BizCity_OCRM_REST::can_manage_staff() : current_user_can( 'manage_options' ),
+				// [2026-11-24 01:50 AM Johnny Chu - Chu Hoàng Anh] OC-006.4b — dán khoá API trong sheet Thêm tài khoản: gọi REST chủ khoá (core/bizcity-llm),
+				// cùng cổng quyền với route đó. Không có lõi ⇒ '' ⇒ sheet chỉ hiện nút mở trang khoá API như trước.
+				'keyUrl'       => class_exists( 'BizCity_LLM_Gateway_Panel_REST', false ) ? esc_url_raw( rest_url( ( defined( 'BIZCITY_TWINCHAT_REST_NS' ) ? BIZCITY_TWINCHAT_REST_NS : 'bizcity-twinchat/v1' ) . '/settings/api-gateway' ) ) : '',
+				'canManageKey' => class_exists( 'BizCity_LLM_Gateway_Panel_REST', false ) && true === BizCity_LLM_Gateway_Panel_REST::can_manage(),
+				// [2026-11-24 Johnny Chu - Chu Hoàng Anh] OC-013.2 — khoá API = Application Passwords của WordPress (REST lõi wp/v2/users/me/application-passwords).
+				// appPasswords: false khi WP tắt (vd. site chưa HTTPS) ⇒ màn nói lý do. userLogin cho ví dụ curl -u. pluginUpload chỉ khi được cài plugin.
+				'appPasswords'  => function_exists( 'wp_is_application_passwords_available_for_user' ) && wp_is_application_passwords_available_for_user( wp_get_current_user() ),
+				'appPwdHttps'   => function_exists( 'wp_is_application_passwords_supported' ) ? wp_is_application_passwords_supported() : false,
+				'userLogin'     => wp_get_current_user()->user_login,
+				'restRoot'      => esc_url_raw( rest_url() ),
+				'pluginUpload'  => current_user_can( 'install_plugins' ) ? esc_url_raw( admin_url( 'plugin-install.php?tab=upload' ) ) : '',
+			),
 			'i18n'             => array(
 				'title'           => __( 'BizCity CRM Inbox', 'bizcity-twin-crm' ),
 				'noChannels'      => __( 'Chưa có inbox nào — hãy kết nối Facebook Page hoặc Zalo OA.', 'bizcity-twin-crm' ),
@@ -263,6 +298,11 @@ class BizCity_CRM_Admin_Menu {
 			$crm_body . ' .wrap{margin:0 !important;height:calc(100vh - 32px);min-height:620px;}'
 			. $crm_body . ' #wpbody-content{padding-bottom:0;}'
 			. $crm_body . ' #bizcity-crm-inbox-root{height:100%;min-height:0;}'
+			// OC-016.1 — the same reset keyed on our own wrap class, whatever menu the page sits under.
+			. '.bizcity-crm-wrap{margin:0 10px 0 0 !important;}'
+			. '#wpbody-content:has(.bizcity-crm-wrap){padding-bottom:0;}'
+			// the WP footer ("Thank you for creating with WordPress" / Version) is absolutely positioned and would sit on top of the app's status bar
+			. 'body:has(.bizcity-crm-wrap) #wpfooter{display:none;}'
 		);
 
 		// [2026-09-22 02:00 AM OpenAI GPT-5.6 Luna] R-PERF-LOADER — the isolated
@@ -310,8 +350,13 @@ class BizCity_CRM_Admin_Menu {
 					. esc_html( (string) ( $mig['reason'] ?? '' ) ) . '</p></div>';
 			}
 		}
-		echo '<div class="wrap">';
-		echo '<div id="bizcity-crm-inbox-root" style="min-height:600px;"></div>';
+		// [2026-11-25 Johnny Chu - Chu Hoàng Anh] OC-016.1 (bảng chấm lần 1) — `wp-header-end`: WordPress common.js đặt admin notice ngay sau mốc này;
+		// thiếu mốc thì nó chèn sau `.wrap h1` ĐẦU TIÊN = tiêu đề "Tổng quan" do React vẽ ⇒ hộp "Zalo chưa sẵn sàng" chen vào hàng tiêu đề.
+		// Lớp `bizcity-crm-wrap`: CSS không phụ thuộc body class (trang dưới menu "Twin plugins" có class `twin-plugins_page_bizcity-crm`, không nằm trong danh sách).
+		// Chiều cao khung do app tự đo (frontend/src/oc/App.jsx), không còn tin `100vh - 32px`.
+		echo '<div class="wrap bizcity-crm-wrap">';
+		echo '<hr class="wp-header-end" style="display:none">';
+		echo '<div id="bizcity-crm-inbox-root" style="min-height:560px;"></div>';
 		echo '</div>';
 	}
 

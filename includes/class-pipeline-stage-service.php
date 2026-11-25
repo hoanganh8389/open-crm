@@ -311,7 +311,7 @@ final class BizCity_CRM_Pipeline_Stage_Service {
 			'related_entity_type' => 'contact', 'related_entity_id' => $contact_id,
 			'notes' => trim( $note . ( $conv_id > 0 ? "\n\n— conversation #" . $conv_id : '' ) ),
 			'completed' => 0, 'created_by' => $actor_id, 'created_at' => $now, 'updated_at' => $now,
-		) );
+		) + ( class_exists( 'BizCity_CRM_Spine_REST_Ext', false ) ? BizCity_CRM_Spine_REST_Ext::task_oc010_fields( 'pipeline' ) : array() ) ); // [2026-11-24 01:20 AM Johnny Chu - Chu Hoàng Anh] OC-010.3 — nhắc việc theo bước bán hàng
 		return (int) $wpdb->insert_id;
 	}
 

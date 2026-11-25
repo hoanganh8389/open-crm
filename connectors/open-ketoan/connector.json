@@ -1,0 +1,29 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "open-ketoan",
+	"group": "pay",
+	"order": 1,
+	"name": "Open Kế Toán",
+	"bizcity": true,
+	"desc": "Sổ cái Bizcity. Nhận ketoan.invoice.issued / debt.due để nhắc công nợ, gửi giấy tờ.",
+	"fields": [
+		{
+			"id": "base_url",
+			"label": "Địa chỉ Open Kế Toán",
+			"type": "url",
+			"required": true,
+			"placeholder": "https://ketoan.congty.vn"
+		},
+		{
+			"id": "token",
+			"label": "Mã truy cập",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": true,
+	"capabilities": [
+		"event.in"
+	]
+}

@@ -101,7 +101,7 @@ class BizCity_CRM_Inbox_To_CRM_Bridge {
 			'created_by'          => $by_user ?: null,
 			'created_at'          => $now,
 			'updated_at'          => $now,
-		) );
+		) + ( class_exists( 'BizCity_CRM_Spine_REST_Ext', false ) ? BizCity_CRM_Spine_REST_Ext::task_oc010_fields( 'chat_session' ) : array() ) ); // [2026-11-24 01:20 AM Johnny Chu - Chu Hoàng Anh] OC-010.3 — bản ghi phiên chat
 		$task_id = (int) $wpdb->insert_id;
 
 		if ( $task_id > 0 && class_exists( 'BizCity_CRM_Event_Emitter' ) ) {

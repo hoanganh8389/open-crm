@@ -1,0 +1,36 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "telegram",
+	"group": "msg",
+	"order": 1,
+	"name": "Telegram",
+	"desc": "Báo quản lý qua Telegram từ kịch bản.",
+	"fields": [
+		{
+			"id": "bot_token",
+			"label": "Bot token",
+			"type": "secret",
+			"required": true,
+			"help": "Tạo bot ở @BotFather, dán mã dạng 123456:ABC…"
+		},
+		{
+			"id": "chat_id",
+			"label": "Chat ID nhận báo",
+			"type": "text",
+			"required": true,
+			"placeholder": "-1001234567890"
+		}
+	],
+	"check": {
+		"method": "GET",
+		"url": "https://api.telegram.org/bot{bot_token}/getMe",
+		"ok_when": {
+			"path": "ok",
+			"equals": true
+		}
+	},
+	"webhook": false,
+	"capabilities": [
+		"notify.out"
+	]
+}

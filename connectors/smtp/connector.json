@@ -1,0 +1,41 @@
+{
+	"schema": "ocrm-connector@1",
+	"key": "smtp",
+	"group": "msg",
+	"order": 2,
+	"name": "Email SMTP",
+	"desc": "Gửi email từ kịch bản, nhận thư vào hộp thư.",
+	"fields": [
+		{
+			"id": "host",
+			"label": "Máy chủ SMTP",
+			"type": "text",
+			"required": true,
+			"placeholder": "smtp.gmail.com"
+		},
+		{
+			"id": "port",
+			"label": "Cổng",
+			"type": "text",
+			"required": true,
+			"placeholder": "587"
+		},
+		{
+			"id": "user",
+			"label": "Tài khoản",
+			"type": "text",
+			"required": true
+		},
+		{
+			"id": "password",
+			"label": "Mật khẩu ứng dụng",
+			"type": "secret",
+			"required": true
+		}
+	],
+	"check": null,
+	"webhook": false,
+	"capabilities": [
+		"email.out"
+	]
+}

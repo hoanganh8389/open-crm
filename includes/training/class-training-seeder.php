@@ -114,7 +114,8 @@ final class BizCity_CRM_Training_Seeder {
 		if ( ! $force && get_transient( self::LOCK_TRANSIENT ) ) {
 			return;
 		}
-		set_transient( self::LOCK_TRANSIENT, 1, force ? 30 : 300 );
+		// [2026-11-24 Johnny Chu - Chu Hoàng Anh] HOTFIX — `force` (hằng không tồn tại) → `$force`: site mới mở trang CRM lần đầu bị lỗi nghiêm trọng (phát hiện khi chạy thử PHASE-017 trên site sạch).
+		set_transient( self::LOCK_TRANSIENT, 1, $force ? 30 : 300 );
 
 		self::set_state( array( 'status' => 'pending' ) );
 
