@@ -39,6 +39,106 @@ final class BizCity_CRM_Announce_REST {
 		register_rest_route( $ns, $ref . '/runs', array( 'methods' => 'GET', 'callback' => array( __CLASS__, 'runs' ), 'permission_callback' => $perm ) );
 		register_rest_route( $ns, $ref . '/runs/(?P<run>' . self::RUN . ')', array( 'methods' => 'GET', 'callback' => array( __CLASS__, 'run' ), 'permission_callback' => $perm ) );
 		register_rest_route( $ns, $ref . '/runs/(?P<run>' . self::RUN . ')/control', array( 'methods' => 'POST', 'callback' => array( __CLASS__, 'control' ), 'permission_callback' => $perm ) );
+		// [2026-11-25 Johnny Chu - Chu Hoàng Anh] OC-007.4 — "Sẵn sàng gửi" of one number + the owner's mass-send switch (owner 2026-11-25: "Chủ số tự bật trong Open CRM").
+		register_rest_route( $ns, '/announce/readiness', array( 'methods' => 'GET', 'callback' => array( __CLASS__, 'readiness' ), 'permission_callback' => $perm ) );
+		register_rest_route( $ns, '/announce/readiness/switch', array( 'methods' => 'POST', 'callback' => array( __CLASS__, 'set_switch' ), 'permission_callback' => $perm ) );
+	}
+
+	/* ── readiness (OC-007.4) ─────────────────────────────────────────── */
+
+	const SWITCH_KEY = 'GROUP_BROADCAST';
+
+	/**
+	 * What still blocks a campaign on ONE number, each item from its real source:
+	 *   online       — the number is on this site's zalo-hub list (Store::account);
+	 *   owner        — push() would find the owner agent (else owner_agent_missing), + the owner-uid-claim@1 state to fix it from here;
+	 *   switch       — the cell's GROUP_BROADCAST of the number (agent-config-view switches; absent on an older cell ⇒ supported:false);
+	 *   pace         — the cell's real BROADCAST_MAX_PER_DAY / GAP for this number (null when the cell did not answer).
+	 */
+	public static function readiness( WP_REST_Request $req ): WP_REST_Response {
+		$uid = (int) get_current_user_id();
+		$acc = preg_replace( '/[^0-9]/', '', (string) $req->get_param( 'account_ref' ) );
+		if ( '' === $acc || ! BizCity_CRM_Announce_Store::can_use_account( $uid, $acc ) ) {
+			return self::err( 'permission_denied', 'Bạn không phụ trách số Zalo này.', 'Chọn một số bạn là chủ, hoặc nhờ quản trị.', 403 );
+		}
+		$a     = BizCity_CRM_Announce_Store::account( $acc );
+		$claim = class_exists( 'BizCity_Zalo_Owner_Uid_Claim' ) ? BizCity_Zalo_Owner_Uid_Claim::state( $acc, $uid ) : null;
+		$view  = self::agent_config( 'GET', $acc );
+		$sw    = self::switch_of( $view );
+		$pace  = is_array( $view['broadcast'] ?? null ) ? $view['broadcast'] : null;
+		$out   = array(
+			'account_ref'   => $acc,
+			'account_label' => self::account_extra( $acc )['account_label'],
+			'online'        => array() !== $a,
+			'owner'         => array(
+				'ready'      => BizCity_CRM_Announce_Cell::owner_ready( $acc, $uid ),
+				'can_claim'  => is_array( $claim ) && ! empty( $claim['can_claim'] ),
+				'reason'     => is_array( $claim ) ? (string) ( $claim['reason'] ?? '' ) : 'claim_unavailable',
+				'uid_masked' => is_array( $claim ) ? (string) ( $claim['uid_masked'] ?? '' ) : '',
+				'pending'    => is_array( $claim ) && is_array( $claim['pending'] ?? null ) ? $claim['pending'] : null,
+				'proxy'      => is_array( $claim ) && ! empty( $claim['proxy'] ),
+			),
+			'switch'        => null === $sw ? array( 'supported' => false, 'on' => null, 'origin' => '' ) : array( 'supported' => true, 'on' => (bool) ( $sw['effective']['value'] ?? false ), 'origin' => (string) ( $sw['effective']['origin'] ?? '' ) ),
+			'pace'          => null === $pace ? null : array(
+				'max_per_day' => (int) ( $pace['max_per_day'] ?? 0 ),
+				'gap_min_s'   => (int) round( (int) ( $pace['gap_min_ms'] ?? 0 ) / 1000 ),
+				'gap_max_s'   => (int) round( (int) ( $pace['gap_max_ms'] ?? 0 ) / 1000 ),
+			),
+		);
+		if ( empty( $view['ok'] ) ) {
+			$out['_degraded'] = true;
+			$out['cell_code'] = (string) ( $view['code'] ?? 'cell_unavailable' );
+		}
+		return new WP_REST_Response( $out, 200 );
+	}
+
+	/** Owner / admin / supervisor turn mass-send on or off for ONE number (the cell writes the number layer; D146-00: the owner bears the risk). */
+	public static function set_switch( WP_REST_Request $req ): WP_REST_Response {
+		$uid = (int) get_current_user_id();
+		$p   = $req->get_json_params();
+		$p   = is_array( $p ) ? $p : $req->get_params();
+		$acc = preg_replace( '/[^0-9]/', '', (string) ( $p['account_ref'] ?? '' ) );
+		if ( '' === $acc || ! BizCity_CRM_Announce_Store::can_use_account( $uid, $acc ) ) {
+			return self::err( 'permission_denied', 'Bạn không phụ trách số Zalo này.', 'Chỉ chủ số hoặc quản trị bật / tắt được.', 403 );
+		}
+		if ( ! array_key_exists( 'on', $p ) ) {
+			return self::err( 'invalid_param', 'Thiếu lựa chọn bật / tắt.', 'Gửi on: true hoặc false.', 400 );
+		}
+		$on   = filter_var( $p['on'], FILTER_VALIDATE_BOOLEAN );
+		$view = self::agent_config( 'PATCH', $acc, array( 'key' => self::SWITCH_KEY, 'value' => $on ? 1 : 0 ) );
+		$sw   = self::switch_of( $view );
+		if ( empty( $view['ok'] ) || null === $sw ) {
+			$code = (string) ( $view['code'] ?? '' );
+			if ( 'unknown_key' === $code || ( ! empty( $view['ok'] ) && null === $sw ) ) {
+				return self::err( 'broadcast_switch_unsupported', 'Trợ lý (Cell) của số này chưa hỗ trợ bật gửi hàng loạt từ Open CRM.', 'Nhờ BizCity cập nhật Cell, hoặc bật "GROUP_BROADCAST" ở trang Cấu hình của Cell.', 409 );
+			}
+			if ( in_array( $code, array( 'permission_denied', 'account_not_found', 'not_found' ), true ) ) {
+				return self::err( 'broadcast_number_not_on_hub', 'Số này chưa gắn với website trên BizCity Hub.', 'Thêm lại số bằng khoá API + quét QR ở Tổng quan, rồi thử lại.', 409, array( 'cell_code' => $code ) );
+			}
+			return self::err( 'broadcast_cell_unreachable', 'Chưa đổi được: trợ lý (Cell) không trả lời.', 'Thử lại sau ít phút; trạng thái cũ giữ nguyên.', 502, array( 'cell_code' => $code ) );
+		}
+		if ( function_exists( 'do_action' ) ) {
+			do_action( 'bizcity_crm_announce_switch', $acc, $on, $uid );
+		}
+		return new WP_REST_Response( array( 'account_ref' => $acc, 'on' => (bool) ( $sw['effective']['value'] ?? false ), 'origin' => (string) ( $sw['effective']['origin'] ?? '' ) ), 200 );
+	}
+
+	/** agent-config-view@1 of one number through the Hub (GET, or PATCH one key). Always an array; failure ⇒ ok:false. */
+	private static function agent_config( string $method, string $acc, array $body = array() ): array {
+		if ( ! class_exists( 'BizCity_Zalo_Personal_Hub_Client' ) || ! method_exists( 'BizCity_Zalo_Personal_Hub_Client', 'agent_config_call' ) ) {
+			return array( 'ok' => false, 'code' => 'hub_client_missing' );
+		}
+		$r = BizCity_Zalo_Personal_Hub_Client::instance()->agent_config_call( $method, $acc, $body );
+		return is_array( $r ) ? $r : array( 'ok' => false, 'code' => 'cell_unavailable' );
+	}
+
+	private static function switch_of( array $view ) {
+		foreach ( (array) ( $view['switches'] ?? array() ) as $s ) {
+			if ( is_array( $s ) && self::SWITCH_KEY === (string) ( $s['key'] ?? '' ) ) {
+				return $s;
+			}
+		}
+		return null;
 	}
 
 	public static function can_announce(): bool {
