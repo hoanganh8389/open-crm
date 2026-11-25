@@ -298,6 +298,11 @@ class BizCity_CRM_Admin_Menu {
 			$crm_body . ' .wrap{margin:0 !important;height:calc(100vh - 32px);min-height:620px;}'
 			. $crm_body . ' #wpbody-content{padding-bottom:0;}'
 			. $crm_body . ' #bizcity-crm-inbox-root{height:100%;min-height:0;}'
+			// OC-016.1 — the same reset keyed on our own wrap class, whatever menu the page sits under.
+			. '.bizcity-crm-wrap{margin:0 10px 0 0 !important;}'
+			. '#wpbody-content:has(.bizcity-crm-wrap){padding-bottom:0;}'
+			// the WP footer ("Thank you for creating with WordPress" / Version) is absolutely positioned and would sit on top of the app's status bar
+			. 'body:has(.bizcity-crm-wrap) #wpfooter{display:none;}'
 		);
 
 		// [2026-09-22 02:00 AM OpenAI GPT-5.6 Luna] R-PERF-LOADER — the isolated
@@ -345,8 +350,13 @@ class BizCity_CRM_Admin_Menu {
 					. esc_html( (string) ( $mig['reason'] ?? '' ) ) . '</p></div>';
 			}
 		}
-		echo '<div class="wrap">';
-		echo '<div id="bizcity-crm-inbox-root" style="min-height:600px;"></div>';
+		// [2026-11-25 Johnny Chu - Chu Hoàng Anh] OC-016.1 (bảng chấm lần 1) — `wp-header-end`: WordPress common.js đặt admin notice ngay sau mốc này;
+		// thiếu mốc thì nó chèn sau `.wrap h1` ĐẦU TIÊN = tiêu đề "Tổng quan" do React vẽ ⇒ hộp "Zalo chưa sẵn sàng" chen vào hàng tiêu đề.
+		// Lớp `bizcity-crm-wrap`: CSS không phụ thuộc body class (trang dưới menu "Twin plugins" có class `twin-plugins_page_bizcity-crm`, không nằm trong danh sách).
+		// Chiều cao khung do app tự đo (frontend/src/oc/App.jsx), không còn tin `100vh - 32px`.
+		echo '<div class="wrap bizcity-crm-wrap">';
+		echo '<hr class="wp-header-end" style="display:none">';
+		echo '<div id="bizcity-crm-inbox-root" style="min-height:560px;"></div>';
 		echo '</div>';
 	}
 
