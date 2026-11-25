@@ -198,6 +198,14 @@ final class BizCity_CRM_Announce_Cell {
 	}
 
 	/**
+	 * [2026-11-25 Johnny Chu - Chu Hoàng Anh] PHASE-0.146 / OC-007.4 — "Sẵn sàng gửi": would a row made now by $user_id on $account pass the
+	 * owner check of push() (owner_agent_missing)? Same resolver, nothing written.
+	 */
+	public static function owner_ready( string $account, int $user_id ): bool {
+		return '' !== self::owner_hash( array( 'account_ref' => $account, 'created_by' => $user_id ) );
+	}
+
+	/**
 	 * The principal hash that receives the owner's 2 Zalo notes (D146-12): the number owner first, then whoever made the row.
 	 * The cell prefers `number_ref` among the numbers this hash sits on (bizcityResolveSiteJobRecipient).
 	 */
